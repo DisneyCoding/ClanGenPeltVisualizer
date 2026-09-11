@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ClanGen Pelt Visualizer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>ClanGen Pelt Visualizer</h1>
+    <p>Experiment with ClanGen pelt masks, colors, and layer combinations.</p>
+  </header>
+
+  <main class="app">
+    <section class="preview-panel panel">
+      <div class="panel-title">
+        <h2>Preview</h2>
+        <label>
+          Pose
+          <select id="poseSelect"></select>
+        </label>
+      </div>
+      <div class="preview-wrap">
+        <canvas id="preview" width="50" height="50"></canvas>
+      </div>
+      <div class="preview-actions">
+        <button id="randomizeBtn">Randomize</button>
+        <button id="resetBtn">Reset</button>
+        <button id="downloadBtn">Download PNG</button>
+        <button id="saveBtn">Save Pelt</button>
+        <label class="button-like">
+          Load Pelt
+          <input id="loadInput" type="file" accept=".json,application/json" hidden>
+        </label>
+      </div>
+      <p id="status" class="status">Loading assets...</p>
+    </section>
+
+    <section class="colors-panel panel">
+      <h2>Colors</h2>
+
+      <div class="color-row">
+        <label for="baseColor">Base color</label>
+        <input id="baseColor" type="color" value="#8a684d">
+        <input id="baseHex" type="text" value="#8A684D" maxlength="7" spellcheck="false">
+      </div>
+
+      <div class="color-row">
+        <label for="patternColor">Pattern color</label>
+        <input id="patternColor" type="color" value="#4b382c">
+        <input id="patternHex" type="text" value="#4B382C" maxlength="7" spellcheck="false">
+      </div>
+
+      <div class="color-row">
+        <label for="secondaryColor">Secondary color</label>
+        <input id="secondaryColor" type="color" value="#d5b998">
+        <input id="secondaryHex" type="text" value="#D5B998" maxlength="7" spellcheck="false">
+      </div>
+
+      <p class="help">
+        Base color is used by the base layer. New pattern layers use the pattern color
+        unless you change their individual color.
+      </p>
+    </section>
+
+    <section class="layers-panel panel">
+      <div class="panel-title">
+        <h2>Layers</h2>
+        <button id="addLayerBtn">+ Add pattern</button>
+      </div>
+
+      <div id="layers"></div>
+
+      <div class="layer-help">
+        <strong>How layers work</strong>
+        <p>
+          Each layer selects one mask from ClanGen's pelt-parts mask atlas.
+          Enable/disable it, change its color, change opacity, or move it up/down.
+        </p>
+      </div>
+    </section>
+
+    <section class="patterns-panel panel">
+      <h2>Add Pattern</h2>
+      <div class="add-pattern-form">
+        <label>
+          Pattern
+          <select id="patternSelect"></select>
+        </label>
+        <label>
+          Color
+          <input id="newLayerColor" type="color" value="#4b382c">
+        </label>
+        <button id="confirmAddBtn">Add layer</button>
+      </div>
+      <p class="help">
+        This first version exposes the individual masks directly. Later we can organize
+        them into ClanGen pattern categories and add custom pattern editing.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Local browser tool — no server or account is required.</p>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
