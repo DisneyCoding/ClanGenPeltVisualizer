@@ -31,7 +31,12 @@ function poseInfo(index) { return POSES.find(p => p.index === index); }
 function normalizeHex(value) { if (!value) return null; let v=String(value).trim(); if(!v.startsWith("#")) v="#"+v; return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : null; }
 function hexToRgb(hex) { const v=normalizeHex(hex); if(!v) return null; return {r:parseInt(v.slice(1,3),16),g:parseInt(v.slice(3,5),16),b:parseInt(v.slice(5,7),16)}; }
 function getColorForLayer(layer) {
-  return layer.colorOverride || peltColors[layer.colorCategory] || peltColors.base || "#8A684D";
+  return (
+    layer.colorOverride ||
+    peltColors[layer.colorCategory] ||
+    peltColors.base ||
+    "#8A684D"
+  );
 }
 function tintMask(maskCanvas, color, opacity) {
   const rgb=hexToRgb(color); if(!rgb) return null;
@@ -50,15 +55,43 @@ function getMaskSprite(pattern, poseIndex) {
   return sprite;
 }
 function render() {
-  if(!assetsReady) return;
-  ctx.clearRect(0,0,SPRITE_W,SPRITE_H);
-  for(const layer of layers){
-    if(!layer.enabled) continue;
-    const tinted=tintMask(getMaskSprite(patternInfo(layer.patternIndex),currentPoseIndex),getColorForLayer(layer),layer.opacity);
-    if(tinted) ctx.drawImage(tinted,0,0);
+  if (!assetsReady) return;
+
+  ctx.clearRect(0, 0, SPRITE_W, SPRITE_H);
+
+  // Draw every enabled pelt layer
+  for (const layer of layers) {
+    if (!layer.enabled) continue;
+
+    const pattern = patternInfo(layer.patternIndex);
+    if (!pattern) continue;
+
+    const mask = getMaskSprite(pattern, currentPoseIndex);
+    if (!mask) continue;
+
+    const color = getColorForLayer(layer);
+    const tinted = tintMask(mask, color, layer.opacity);
+
+    if (tinted) {
+      ctx.drawImage(tinted, 0, 0);
+    }
   }
-  const x=(currentPoseIndex%4)*SPRITE_W, y=Math.floor(currentPoseIndex/4)*SPRITE_H;
-  ctx.drawImage(lineart,x,y,SPRITE_W,SPRITE_H,0,0,SPRITE_W,SPRITE_H);
+
+  // Draw the lineart for the current pose over the pelt
+  const x = (currentPoseIndex % 4) * SPRITE_W;
+  const y = Math.floor(currentPoseIndex / 4) * SPRITE_H;
+
+  ctx.drawImage(
+    lineart,
+    x,
+    y,
+    SPRITE_W,
+    SPRITE_H,
+    0,
+    0,
+    SPRITE_W,
+    SPRITE_H
+  );
 }
 function renderLayers(){
   const container=document.getElementById("layers"); container.innerHTML="";
@@ -108,13 +141,15 @@ function randomize() {
     peltColors[parameter.id] = randomHex();
   }
 
-  // Create a new set of layers
+  // Get all usable patterns except the base mask
   const usablePatterns = PATTERNS
     .map(p => p.index)
     .filter(index => index !== 0);
 
+  // Start with the base layer
   layers = [createLayer(0, "base")];
 
+  // Add 1–3 random patterns
   const count = 1 + Math.floor(Math.random() * 3);
 
   for (let i = 0; i < count; i++) {
@@ -128,11 +163,20 @@ function randomize() {
     layers.push(layer);
   }
 
+  // Select the top layer
   selectedLayerId = layers.at(-1).id;
 
+  // Rebuild the color controls
   renderColorControls();
+
+  // Rebuild the layer display
   renderLayers();
+
+  // Immediately redraw the cat
   render();
+
+  // Force the canvas to update visually
+  ctx.imageSmoothingEnabled = false;
 }
 function savePelt(){const data={version:2,poseIndex:currentPoseIndex,colors:peltColors,layers:layers.map(({patternIndex,colorCategory,colorOverride,opacity,enabled})=>({patternIndex,colorCategory,colorOverride,opacity,enabled}))};downloadBlob(JSON.stringify(data,null,2),"clangen-pelt.json","application/json");}
 function loadPelt(file){const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.colors&&typeof data.colors==="object")for(const p of COLOR_PARAMETERS){const v=normalizeHex(data.colors[p.id]);if(v)peltColors[p.id]=v;}if(!Array.isArray(data.layers))throw new Error("Invalid layer data.");layers=data.layers.filter(l=>Number.isInteger(l.patternIndex)&&patternInfo(l.patternIndex)).map(l=>({id:crypto.randomUUID(),patternIndex:l.patternIndex,colorCategory:l.colorCategory||"base",colorOverride:normalizeHex(l.colorOverride),opacity:Math.max(0,Math.min(1,Number(l.opacity??1))),enabled:l.enabled!==false}));if(!layers.length)layers=[createLayer(0,"base")];selectedLayerId=layers.at(-1).id;if(Number.isInteger(data.poseIndex)&&poseInfo(data.poseIndex)){currentPoseIndex=data.poseIndex;document.getElementById("poseSelect").value=currentPoseIndex;}renderColorControls();renderLayers();render();setStatus("Pelt loaded.");}catch(err){console.error(err);setStatus("Could not load that pelt file.");}};reader.readAsText(file);}
