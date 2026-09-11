@@ -1016,16 +1016,7 @@ function savePelt() {
           layer.patternIndex,
 
         colorCategory:
-          layer.colorCategory,
-
-        colorOverride:
-          layer.colorOverride,
-
-        opacity:
-          layer.opacity,
-
-        enabled:
-          layer.enabled
+          PATTERN_COLOR_MAP[layer.patternIndex] || layer.colorCategory
       }))
   };
 
