@@ -1,42 +1,29 @@
 # ClanGen Pelt Visualizer
 
-A GitHub Pages prototype for experimenting with ClanGen pelt masks.
+A GitHub Pages-ready browser tool for recoloring ClanGen-style cat pose lineart using a pelt-part mask atlas.
 
-## Current features
+## Folder structure
 
-- Uses the supplied ClanGen `lineart.png`.
-- Uses the supplied ClanGen `pelt_parts_masks.png`.
-- Selects individual 50x50 ClanGen poses.
-- Selects the 42 individual pelt-part mask groups.
-- Applies hex colors to masks in the browser.
-- Add/remove/reorder/enable/disable layers.
-- Change layer opacity.
-- Save/load pelt configurations as JSON.
-- Export the preview as a PNG.
-- Randomize a pelt.
+```text
+clangen-pelt-visualizer/
+├── index.html
+├── style.css
+├── script.js
+├── data.js
+├── colors.js
+└── assets/
+    ├── lineart.png
+    └── pelt_parts_masks.png
+```
 
-## Important asset layout
+## Important
 
-ClanGen's current pose data uses a 4x8 sprite layout, with 50x50 sprites. The pelt mask atlas is organized into 200x400 groups, each containing the same 4x8 pose layout.
+The two PNG files are intentionally not included because they are the artwork assets from your project. Put your existing `lineart.png` and `pelt_parts_masks.png` in `assets/`.
 
-This prototype therefore treats:
+`colors.js` currently contains the complete color-parameter structure and the `WHITE` preset that was supplied earlier. Add the remaining ClanGen presets to `PELT_COLORS` when you have the full JSON available.
 
-- one pose = 50x50 pixels
-- one pelt mask group = 200x400 pixels
-- mask group position = pattern index in a 10-column atlas
+`data.js` includes a safe 42-pattern/pose scaffold so the site can load. Replace its generic pattern/pose labels and atlas coordinates with your exact `data.js` if you have that file already; the renderer expects each pattern to have `index`, `groupX`, and `groupY`, and each pose to have `index`.
 
 ## GitHub Pages
 
-Upload this entire folder to a GitHub repository and enable GitHub Pages for the branch/folder containing `index.html`.
-
-No server is required. Everything happens in the browser.
-
-## Next development steps
-
-1. Organize masks into user-friendly categories.
-2. Add ClanGen's actual pelt color palettes.
-3. Add white patches, tortie, eyes, skin, scars, accessories, and other sprite layers.
-4. Add thumbnails for patterns.
-5. Add pattern compatibility rules.
-6. Add a proper custom pattern editor.
-7. Add export/import formats appropriate for the intended ClanGen workflow.
+Upload the folder to a GitHub repository and enable GitHub Pages for the branch/folder containing `index.html`. Because this is a client-only ES-module site, no server or build step is required.

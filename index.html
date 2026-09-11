@@ -1,144 +1,62 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ClanGen Pelt Visualizer</title>
   <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-
-  <header>
-    <h1>ClanGen Pelt Visualizer</h1>
-    <p>Experiment with ClanGen pelt masks, colors, and layer combinations.</p>
-  </header>
-
   <main class="app">
-
-    <!-- PREVIEW -->
-    <section class="preview-panel panel">
-
-      <div class="panel-title">
-        <h2>Preview</h2>
-
-        <label>
-          Pose
-          <select id="poseSelect"></select>
-        </label>
+    <header class="header">
+      <div>
+        <h1>ClanGen Pelt Visualizer</h1>
+        <p>Preview ClanGen-style pelts by editing individual pattern colors.</p>
       </div>
+      <div id="status" class="status">Loading assets...</div>
+    </header>
 
-      <div class="preview-wrap">
-        <canvas id="preview" width="50" height="50"></canvas>
-      </div>
+    <section class="workspace">
+      <section class="preview-panel panel">
+        <div class="panel-heading"><h2>Preview</h2></div>
+        <div class="preview-wrap"><canvas id="preview" width="50" height="50"></canvas></div>
+        <label>Pose<select id="poseSelect"></select></label>
+        <div class="button-row">
+          <button id="randomizeBtn">Randomize</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+        <div class="button-row">
+          <button id="downloadBtn">Download PNG</button>
+          <button id="saveBtn">Save Pelt</button>
+          <label class="button file-button">Load Pelt<input id="loadInput" type="file" accept="application/json,.json"></label>
+        </div>
+      </section>
 
-      <div class="preview-actions">
-        <button id="randomizeBtn">Randomize</button>
-        <button id="resetBtn">Reset</button>
-        <button id="downloadBtn">Download PNG</button>
-        <button id="saveBtn">Save Pelt</button>
+      <section class="controls panel">
+        <div class="section">
+          <div class="section-title"><h2>Color Preset</h2></div>
+          <label>ClanGen preset<select id="colorPresetSelect"></select></label>
+        </div>
 
-        <label class="button-like">
-          Load Pelt
-          <input
-            id="loadInput"
-            type="file"
-            accept=".json,application/json"
-            hidden
-          >
-        </label>
-      </div>
+        <div class="section">
+          <div class="section-title"><h2>Colors</h2></div>
+          <div id="colorControls" class="color-controls"></div>
+        </div>
 
-      <p id="status" class="status">Loading assets...</p>
+        <div class="section">
+          <div class="section-title"><h2>Layers</h2><button id="addLayerBtn">+ Add pattern</button></div>
+          <div id="layers" class="layers"></div>
+        </div>
 
+        <div class="section add-pattern">
+          <div class="section-title"><h2>Add Pattern</h2></div>
+          <label>Pattern<select id="patternSelect"></select></label>
+          <label>Color<select id="newLayerCategory"></select></label>
+          <button id="confirmAddBtn">Add Pattern</button>
+        </div>
+      </section>
     </section>
-
-
-    <!-- COLORS -->
-    <section class="colors-panel panel">
-
-      <div class="panel-title">
-        <h2>Colors</h2>
-
-        <label>
-          Preset
-          <select id="colorPresetSelect"></select>
-        </label>
-      </div>
-
-      <p class="help">
-        Choose a ClanGen color preset or edit any of the individual color
-        parameters below. Pattern layers use these color parameters rather
-        than having their own individual colors.
-      </p>
-
-      <div id="colors"></div>
-
-    </section>
-
-
-    <!-- LAYERS -->
-    <section class="layers-panel panel">
-
-      <div class="panel-title">
-        <h2>Layers</h2>
-        <button id="addLayerBtn">+ Add pattern</button>
-      </div>
-
-      <div id="layers"></div>
-
-      <div class="layer-help">
-        <strong>How layers work</strong>
-
-        <p>
-          Each layer selects one mask from ClanGen's pelt-parts mask atlas.
-          Layers reference one of the ClanGen color parameters above.
-          They do not have their own individual hex colors.
-        </p>
-      </div>
-
-    </section>
-
-
-    <!-- ADD PATTERN -->
-    <section class="patterns-panel panel">
-
-      <h2>Add Pattern</h2>
-
-      <div class="add-pattern-form">
-
-        <label>
-          Pattern
-          <select id="patternSelect"></select>
-        </label>
-
-        <label>
-          Color
-          <select id="newLayerCategory"></select>
-        </label>
-
-        <button id="confirmAddBtn">Add layer</button>
-
-      </div>
-
-      <p class="help">
-        Select which ClanGen color parameter the pattern should use.
-        Changing that color above will automatically update every layer
-        using the same color parameter.
-      </p>
-
-    </section>
-
   </main>
-
-
-  <footer>
-    <p>Local browser tool — no server or account is required.</p>
-  </footer>
-
-
-  <!-- Data files -->
   <script type="module" src="script.js"></script>
-
 </body>
 </html>
