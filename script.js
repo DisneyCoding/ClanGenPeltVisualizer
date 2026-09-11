@@ -669,12 +669,13 @@ function renderColorControls() {
       color.addEventListener(
         "input",
         () => {
-
           peltColors[parameter.id] =
             color.value.toUpperCase();
 
           hex.value =
             peltColors[parameter.id];
+
+          refreshColorCategoryOptions();
 
           renderLayers();
           render();
@@ -688,12 +689,10 @@ function renderColorControls() {
       hex.addEventListener(
         "change",
         () => {
-
           const value =
             normalizeHex(hex.value);
 
           if (!value) {
-
             hex.value =
               peltColors[parameter.id];
 
@@ -705,6 +704,8 @@ function renderColorControls() {
 
           color.value =
             value;
+
+          refreshColorCategoryOptions();
 
           renderLayers();
           render();
@@ -787,28 +788,21 @@ function populateControls() {
    * ----------------------------
    */
 
-  const category =
-    document.getElementById(
-      "newLayerCategory"
-    );
+  const category = document.getElementById("newLayerCategory");
 
   if (category) {
-
     category.innerHTML = "";
 
-    COLOR_PARAMETERS.forEach(parameter => {
+    for (const parameter of COLOR_PARAMETERS) {
+      const option = document.createElement("option");
 
-      const option =
-        document.createElement("option");
-
-      option.value =
-        parameter.id;
+      option.value = parameter.id;
 
       option.textContent =
-        `${parameter.label} (${parameter.id})`;
+        `${parameter.label} — ${peltColors[parameter.id] || "#FFFFFF"}`;
 
       category.appendChild(option);
-    });
+    }
   }
 
 
@@ -817,6 +811,32 @@ function populateControls() {
    * associated with the currently selected pattern.
    */
   updateAssignedColorCategory();
+}
+
+
+function refreshColorCategoryOptions() {
+  const category = document.getElementById("newLayerCategory");
+
+  if (!category) return;
+
+  const currentValue = category.value;
+
+  category.innerHTML = "";
+
+  for (const parameter of COLOR_PARAMETERS) {
+    const option = document.createElement("option");
+
+    option.value = parameter.id;
+
+    option.textContent =
+      `${parameter.label} — ${peltColors[parameter.id] || "#FFFFFF"}`;
+
+    category.appendChild(option);
+  }
+
+  if (colorParameterExists(currentValue)) {
+    category.value = currentValue;
+  }
 }
 
 
