@@ -1,5 +1,5 @@
 import { PATTERNS, POSES } from "./data.js";
-import { COLOR_PARAMETERS, PELT_COLORS } from "./colors.js";
+import { COLOR_PARAMETERS } from "./colors.js";
 
 const LINEART_URL = "assets/lineart.png";
 const MASK_URL = "assets/pelt_parts_masks.png";
@@ -16,7 +16,10 @@ const lineart = new Image();
 const maskAtlas = new Image();
 let assetsReady = false;
 let currentPoseIndex = 18;
-let peltColors = createDefaultColors();
+let peltColors = {};
+for (const parameter of COLOR_PARAMETERS) {
+  peltColors[parameter.id] = "#FFFFFF";
+}
 let layers = [createLayer(0, "base")];
 let selectedLayerId = layers[0].id;
 
@@ -27,8 +30,9 @@ function patternInfo(index) { return PATTERNS.find(p => p.index === index); }
 function poseInfo(index) { return POSES.find(p => p.index === index); }
 function normalizeHex(value) { if (!value) return null; let v=String(value).trim(); if(!v.startsWith("#")) v="#"+v; return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toUpperCase() : null; }
 function hexToRgb(hex) { const v=normalizeHex(hex); if(!v) return null; return {r:parseInt(v.slice(1,3),16),g:parseInt(v.slice(3,5),16),b:parseInt(v.slice(5,7),16)}; }
-function getColorForLayer(layer) { return peltColors[layer.colorCategory] || peltColors.base || "#8A684D"; }
-
+function getColorForLayer(layer) {
+  return layer.colorOverride || peltColors[layer.colorCategory] || peltColors.base || "#8A684D";
+}
 function tintMask(maskCanvas, color, opacity) {
   const rgb=hexToRgb(color); if(!rgb) return null;
   const output=document.createElement("canvas"); output.width=SPRITE_W; output.height=SPRITE_H;
@@ -105,6 +109,20 @@ function downloadBlob(text,name,type){const blob=new Blob([text],{type});const u
 function downloadPNG(){const scale=8,output=document.createElement("canvas");output.width=SPRITE_W*scale;output.height=SPRITE_H*scale;const out=output.getContext("2d");out.imageSmoothingEnabled=false;out.drawImage(canvas,0,0,output.width,output.height);output.toBlob(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="clangen-pelt.png";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},"image/png");}
 function setStatus(message){document.getElementById("status").textContent=message;}
 function loadImage(image,url,name){return new Promise((resolve,reject)=>{image.onload=()=>resolve(image);image.onerror=()=>reject(new Error(`Could not load ${name}: ${url}`));image.src=url;});}
+function resetPelt() {
+  peltColors = {};
+
+  for (const parameter of COLOR_PARAMETERS) {
+    peltColors[parameter.id] = "#FFFFFF";
+  }
+
+  layers = [createLayer(0, "base")];
+  selectedLayerId = layers[0].id;
+
+  renderColorControls();
+  renderLayers();
+  render();
+}
 
 document.getElementById("poseSelect").addEventListener("change",e=>{currentPoseIndex=Number(e.target.value);render();});
 document.getElementById("addLayerBtn").addEventListener("click",()=>document.getElementById("patternSelect").focus());
@@ -113,5 +131,6 @@ document.getElementById("randomizeBtn").addEventListener("click",randomize);
 document.getElementById("downloadBtn").addEventListener("click",downloadPNG);
 document.getElementById("saveBtn").addEventListener("click",savePelt);
 document.getElementById("loadInput").addEventListener("change",e=>{if(e.target.files[0])loadPelt(e.target.files[0]);});
+document.getElementById("resetBtn").addEventListener("click",resetPelt);
 
 Promise.all([loadImage(lineart,LINEART_URL,"lineart.png"),loadImage(maskAtlas,MASK_URL,"pelt_parts_masks.png")]).then(()=>{assetsReady=true;populateControls();renderColorControls();renderLayers();render();setStatus("Assets loaded.");}).catch(error=>{console.error(error);populateControls();renderColorControls();renderLayers();setStatus(error.message);});
