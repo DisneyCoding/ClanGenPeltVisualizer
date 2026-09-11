@@ -68,3 +68,8 @@ PoseIndex is the pose of the cat, usually no need to use this, just for referenc
 colors is all the colors, in the format you would need to put into the game!!
 
 layers is the custom pelt type if you wanted to make that a pelt recipe, like how Agouti, Bengal, and Classic have layers in the game, this however is not formatted how the game wants it.
+
+
+## DISCLAIMER
+
+I did you AI(specifically ChatGPT) to help me learn how to do all this, and some of the code is copy and pasted from it, but i did debug it by myself and had the ideas for it all.
