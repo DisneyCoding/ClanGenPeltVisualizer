@@ -12,43 +12,43 @@ The save files will look something like this:
 {
   "poseIndex": 18,
   "colors": {
-    "base": "#7D5C9E",
-    "base_gradient_bottom": "#A542C3",
-    "base_gradient_top": "#14A3A2",
-    "pattern": "#37261C",
-    "pattern_gradient_top": "#F40283",
-    "pattern_fill": "#7A8BE3",
-    "masked_light_pattern": "#CC4225",
-    "newborn_base": "#EB1759",
-    "newborn_base_gradient_bottom": "#6C3C13",
-    "newborn_base_gradient_top": "#D15CDD",
-    "newborn_pattern": "#5EE991",
-    "newborn_pattern_gradient_top": "#9EF479",
-    "newborn_pattern_fill": "#8C7E8E",
-    "smoke_base": "#3E94A1",
-    "smoke_base_gradient_top": "#4A99A2",
-    "smoke_base_gradient_bottom": "#06E22C",
-    "smoke_pattern": "#BEBD90",
-    "smoke_pattern_gradient_top": "#48BC49",
-    "freckled_pattern_gradient_top": "#27FA41",
-    "exotic_base": "#C51551",
-    "exotic_base_gradient_bottom": "#68283C",
-    "exotic_base_gradient_top": "#FA3E6F",
-    "exotic_pattern": "#52C6B8",
-    "exotic_pattern_gradient_top": "#1980F3",
-    "exotic_pattern_fill": "#66245E",
-    "exotic_pattern_fill_gradient_top": "#C0ED46",
-    "exotic_light_pattern": "#F4A628",
-    "exotic_muzzle": "#5CBC12",
-    "newborn_exotic_base": "#D37407",
-    "newborn_exotic_base_gradient_bottom": "#B372A1",
-    "newborn_exotic_base_gradient_top": "#9E1417",
-    "newborn_exotic_pattern": "#97CC0B",
-    "newborn_exotic_pattern_gradient_top": "#26B001",
-    "newborn_exotic_pattern_fill": "#7A0C68",
-    "newborn_exotic_pattern_fill_gradient_top": "#C2462A",
-    "newborn_exotic_light_pattern": "#4A517B",
-    "newborn_exotic_muzzle": "#A1CA7D"
+    "base": "#D76707",
+    "base_gradient_bottom": "#CFFB97",
+    "base_gradient_top": "#E33100",
+    "pattern": "#02C68E",
+    "pattern_gradient_top": "#A522A5",
+    "pattern_fill": "#393BA1",
+    "masked_light_pattern": "#6FD10C",
+    "newborn_base": "#08CEC5",
+    "newborn_base_gradient_bottom": "#6978C0",
+    "newborn_base_gradient_top": "#138661",
+    "newborn_pattern": "#7BDC43",
+    "newborn_pattern_gradient_top": "#A0BA78",
+    "newborn_pattern_fill": "#BDE9A0",
+    "smoke_base": "#9E0D1C",
+    "smoke_base_gradient_top": "#3F7A99",
+    "smoke_base_gradient_bottom": "#22E026",
+    "smoke_pattern": "#05AA24",
+    "smoke_pattern_gradient_top": "#E4FA69",
+    "freckled_pattern_gradient_top": "#C2BE86",
+    "exotic_base": "#587B20",
+    "exotic_base_gradient_bottom": "#8B5D2F",
+    "exotic_base_gradient_top": "#D46ECA",
+    "exotic_pattern": "#CA5CE5",
+    "exotic_pattern_gradient_top": "#3CFD40",
+    "exotic_pattern_fill": "#817065",
+    "exotic_pattern_fill_gradient_top": "#F3CB3C",
+    "exotic_light_pattern": "#A9B451",
+    "exotic_muzzle": "#490E22",
+    "newborn_exotic_base": "#8EE07E",
+    "newborn_exotic_base_gradient_bottom": "#AE424D",
+    "newborn_exotic_base_gradient_top": "#14E245",
+    "newborn_exotic_pattern": "#E7E50F",
+    "newborn_exotic_pattern_gradient_top": "#9880AF",
+    "newborn_exotic_pattern_fill": "#9C7DC4",
+    "newborn_exotic_pattern_fill_gradient_top": "#09872B",
+    "newborn_exotic_light_pattern": "#0D9190",
+    "newborn_exotic_muzzle": "#38BBBF"
   },
   "layers": [
     {
@@ -57,15 +57,7 @@ The save files will look something like this:
     },
     {
       "patternIndex": 27,
-      "colorCategory": "pattern"
-    },
-    {
-      "patternIndex": 24,
-      "colorCategory": "pattern"
-    },
-    {
-      "patternIndex": 36,
-      "colorCategory": "pattern"
+      "colorCategory": "exotic_muzzle"
     }
   ]
 }
@@ -75,4 +67,4 @@ PoseIndex is the pose of the cat, usually no need to use this, just for referenc
 
 colors is all the colors, in the format you would need to put into the game!!
 
-layers is the custom pelt type if you wanted to make that a pelt recipe, like how Agouti, Bengal, and Classic have layers in the game
+layers is the custom pelt type if you wanted to make that a pelt recipe, like how Agouti, Bengal, and Classic have layers in the game, this however is not formatted how the game wants it.
