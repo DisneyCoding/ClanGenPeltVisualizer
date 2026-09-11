@@ -22,9 +22,15 @@ for (const parameter of COLOR_PARAMETERS) {
 }
 let layers = [createLayer(0, "base")];
 let selectedLayerId = layers[0].id;
-
-function createLayer(patternIndex, colorCategory="base") {
-  return { id: crypto.randomUUID(), patternIndex, colorCategory, opacity: 1, enabled: true };
+function createLayer(patternIndex, colorCategory = "base") {
+  return {
+    id: crypto.randomUUID(),
+    patternIndex,
+    colorCategory,
+    colorOverride: null,
+    opacity: 1,
+    enabled: true
+  };
 }
 function patternInfo(index) { return PATTERNS.find(p => p.index === index); }
 function poseInfo(index) { return POSES.find(p => p.index === index); }
@@ -59,14 +65,15 @@ function render() {
 
   ctx.clearRect(0, 0, SPRITE_W, SPRITE_H);
 
-  // Draw every enabled pelt layer
   for (const layer of layers) {
     if (!layer.enabled) continue;
 
     const pattern = patternInfo(layer.patternIndex);
+
     if (!pattern) continue;
 
     const mask = getMaskSprite(pattern, currentPoseIndex);
+
     if (!mask) continue;
 
     const color = getColorForLayer(layer);
@@ -77,7 +84,6 @@ function render() {
     }
   }
 
-  // Draw the lineart for the current pose over the pelt
   const x = (currentPoseIndex % 4) * SPRITE_W;
   const y = Math.floor(currentPoseIndex / 4) * SPRITE_H;
 
@@ -135,15 +141,23 @@ function populateControls(){
   COLOR_PARAMETERS.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.label;cat.appendChild(o);}); cat.value="pattern";
 }
 function randomHex(){return "#"+Math.floor(Math.random()*0x1000000).toString(16).padStart(6,"0").toUpperCase();}
+function refreshPelt() {
+  renderColorControls();
+  renderLayers();
+
+  requestAnimationFrame(() => {
+    render();
+  });
+}
 function randomize() {
-  // Randomize all color parameters
+  // Randomize every color parameter
   for (const parameter of COLOR_PARAMETERS) {
     peltColors[parameter.id] = randomHex();
   }
 
-  // Get all usable patterns except the base mask
+  // Get all patterns except the base mask
   const usablePatterns = PATTERNS
-    .map(p => p.index)
+    .map(pattern => pattern.index)
     .filter(index => index !== 0);
 
   // Start with the base layer
@@ -163,20 +177,11 @@ function randomize() {
     layers.push(layer);
   }
 
-  // Select the top layer
+  // Select the topmost layer
   selectedLayerId = layers.at(-1).id;
 
-  // Rebuild the color controls
-  renderColorControls();
-
-  // Rebuild the layer display
-  renderLayers();
-
-  // Immediately redraw the cat
-  render();
-
-  // Force the canvas to update visually
-  ctx.imageSmoothingEnabled = false;
+  // Update everything and force a fresh render
+  refreshPelt();
 }
 function savePelt(){const data={version:2,poseIndex:currentPoseIndex,colors:peltColors,layers:layers.map(({patternIndex,colorCategory,colorOverride,opacity,enabled})=>({patternIndex,colorCategory,colorOverride,opacity,enabled}))};downloadBlob(JSON.stringify(data,null,2),"clangen-pelt.json","application/json");}
 function loadPelt(file){const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.colors&&typeof data.colors==="object")for(const p of COLOR_PARAMETERS){const v=normalizeHex(data.colors[p.id]);if(v)peltColors[p.id]=v;}if(!Array.isArray(data.layers))throw new Error("Invalid layer data.");layers=data.layers.filter(l=>Number.isInteger(l.patternIndex)&&patternInfo(l.patternIndex)).map(l=>({id:crypto.randomUUID(),patternIndex:l.patternIndex,colorCategory:l.colorCategory||"base",colorOverride:normalizeHex(l.colorOverride),opacity:Math.max(0,Math.min(1,Number(l.opacity??1))),enabled:l.enabled!==false}));if(!layers.length)layers=[createLayer(0,"base")];selectedLayerId=layers.at(-1).id;if(Number.isInteger(data.poseIndex)&&poseInfo(data.poseIndex)){currentPoseIndex=data.poseIndex;document.getElementById("poseSelect").value=currentPoseIndex;}renderColorControls();renderLayers();render();setStatus("Pelt loaded.");}catch(err){console.error(err);setStatus("Could not load that pelt file.");}};reader.readAsText(file);}
@@ -194,9 +199,7 @@ function resetPelt() {
   layers = [createLayer(0, "base")];
   selectedLayerId = layers[0].id;
 
-  renderColorControls();
-  renderLayers();
-  render();
+  refreshPelt();
 }
 
 document.getElementById("poseSelect").addEventListener("change",e=>{currentPoseIndex=Number(e.target.value);render();});
