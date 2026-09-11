@@ -30,7 +30,7 @@ function createLayer(patternIndex, colorCategory = "base") {
   return {
     id: crypto.randomUUID(),
     patternIndex,
-    peltColorID: peltColorsID[layers.patternIndex] || null,
+    peltColorID: peltColorsID[patternIndex] !== undefined ? peltColorsID[patternIndex] : null,
     colorCategory,
     colorOverride: null,
     opacity: 1,
