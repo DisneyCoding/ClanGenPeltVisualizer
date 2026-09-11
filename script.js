@@ -102,7 +102,38 @@ function populateControls(){
   COLOR_PARAMETERS.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.label;cat.appendChild(o);}); cat.value="pattern";
 }
 function randomHex(){return "#"+Math.floor(Math.random()*0x1000000).toString(16).padStart(6,"0").toUpperCase();}
-function randomize(){peltColors.base=randomHex();const usable=PATTERNS.map(p=>p.index).filter(i=>i!==0);layers=[createLayer(0,"base")];const count=1+Math.floor(Math.random()*3);for(let i=0;i<count;i++){layers.push(createLayer(usable[Math.floor(Math.random()*usable.length)],"pattern"));layers.at(-1).opacity=.5+Math.random()*.5;}selectedLayerId=layers.at(-1).id;renderColorControls();renderLayers();render();}
+function randomize() {
+  // Randomize all color parameters
+  for (const parameter of COLOR_PARAMETERS) {
+    peltColors[parameter.id] = randomHex();
+  }
+
+  // Create a new set of layers
+  const usablePatterns = PATTERNS
+    .map(p => p.index)
+    .filter(index => index !== 0);
+
+  layers = [createLayer(0, "base")];
+
+  const count = 1 + Math.floor(Math.random() * 3);
+
+  for (let i = 0; i < count; i++) {
+    const patternIndex =
+      usablePatterns[Math.floor(Math.random() * usablePatterns.length)];
+
+    const layer = createLayer(patternIndex, "pattern");
+
+    layer.opacity = 0.5 + Math.random() * 0.5;
+
+    layers.push(layer);
+  }
+
+  selectedLayerId = layers.at(-1).id;
+
+  renderColorControls();
+  renderLayers();
+  render();
+}
 function savePelt(){const data={version:2,poseIndex:currentPoseIndex,colors:peltColors,layers:layers.map(({patternIndex,colorCategory,colorOverride,opacity,enabled})=>({patternIndex,colorCategory,colorOverride,opacity,enabled}))};downloadBlob(JSON.stringify(data,null,2),"clangen-pelt.json","application/json");}
 function loadPelt(file){const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.colors&&typeof data.colors==="object")for(const p of COLOR_PARAMETERS){const v=normalizeHex(data.colors[p.id]);if(v)peltColors[p.id]=v;}if(!Array.isArray(data.layers))throw new Error("Invalid layer data.");layers=data.layers.filter(l=>Number.isInteger(l.patternIndex)&&patternInfo(l.patternIndex)).map(l=>({id:crypto.randomUUID(),patternIndex:l.patternIndex,colorCategory:l.colorCategory||"base",colorOverride:normalizeHex(l.colorOverride),opacity:Math.max(0,Math.min(1,Number(l.opacity??1))),enabled:l.enabled!==false}));if(!layers.length)layers=[createLayer(0,"base")];selectedLayerId=layers.at(-1).id;if(Number.isInteger(data.poseIndex)&&poseInfo(data.poseIndex)){currentPoseIndex=data.poseIndex;document.getElementById("poseSelect").value=currentPoseIndex;}renderColorControls();renderLayers();render();setStatus("Pelt loaded.");}catch(err){console.error(err);setStatus("Could not load that pelt file.");}};reader.readAsText(file);}
 function downloadBlob(text,name,type){const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
