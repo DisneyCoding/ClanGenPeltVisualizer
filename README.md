@@ -53,36 +53,26 @@ The save files will look something like this:
   "layers": [
     {
       "patternIndex": 0,
-      "colorCategory": "base",
-      "colorOverride": null,
-      "opacity": 1,
-      "enabled": true
+      "colorCategory": "base"
     },
     {
       "patternIndex": 27,
-      "colorCategory": "pattern",
-      "colorOverride": null,
-      "opacity": 0.7122072120502532,
-      "enabled": true
+      "colorCategory": "pattern"
     },
     {
       "patternIndex": 24,
-      "colorCategory": "pattern",
-      "colorOverride": null,
-      "opacity": 0.5151003366784247,
-      "enabled": true
+      "colorCategory": "pattern"
     },
     {
       "patternIndex": 36,
-      "colorCategory": "pattern",
-      "colorOverride": null,
-      "opacity": 0.7493000329682178,
-      "enabled": true
+      "colorCategory": "pattern"
     }
   ]
 }
 ```
 
 PoseIndex is the pose of the cat, usually no need to use this, just for reference for this GitHub Page.
+
 colors is all the colors, in the format you would need to put into the game!!
+
 layers is the custom pelt type if you wanted to make that a pelt recipe, like how Agouti, Bengal, and Classic have layers in the game

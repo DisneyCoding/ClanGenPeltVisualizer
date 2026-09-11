@@ -193,8 +193,7 @@ function savePelt() {
 
     layers: layers.map(layer => ({
       patternIndex: layer.patternIndex,
-      colorCategory: layer.colorCategory,
-      colorOverride: layer.colorOverride
+      colorCategory: layer.colorCategory
     }))
   };
 
