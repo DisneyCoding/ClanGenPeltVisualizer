@@ -22,11 +22,11 @@ for (const parameter of COLOR_PARAMETERS) {
 }
 let layers = [createLayer(0, "base")];
 let selectedLayerId = layers[0].id;
-function createLayer(patternIndex) {
+function createLayer(patternIndex, colorCategory = "pattern") {
   return {
     id: crypto.randomUUID(),
     patternIndex,
-    colorCategory: PATTERN_COLOR_MAP[patternIndex] || "base",
+    colorCategory,
     colorOverride: null,
     opacity: 1,
     enabled: true
@@ -254,7 +254,7 @@ function resetPelt() {
 
 document.getElementById("poseSelect").addEventListener("change",e=>{currentPoseIndex=Number(e.target.value);render();});
 document.getElementById("addLayerBtn").addEventListener("click",()=>document.getElementById("patternSelect").focus());
-document.getElementById("confirmAddBtn").addEventListener("click", () => {const patternIndex = Number(document.getElementById("patternSelect").value);const layer = createLayer(patternIndex);layers.push(layer);selectedLayerId = layer.id;renderLayers();render();});
+document.getElementById("confirmAddBtn").addEventListener("click", () => {const patternIndex = Number(document.getElementById("patternSelect").value);const colorCategory =document.getElementById("newLayerCategory").value;const layer = createLayer(patternIndex, colorCategory);layers.push(layer);selectedLayerId = layer.id;renderLayers();render();});
 document.getElementById("randomizeBtn").addEventListener("click",randomize);
 document.getElementById("downloadBtn").addEventListener("click",downloadPNG);
 document.getElementById("saveBtn").addEventListener("click",savePelt);
