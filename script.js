@@ -20,12 +20,17 @@ let peltColors = {};
 for (const parameter of COLOR_PARAMETERS) {
   peltColors[parameter.id] = "#FFFFFF";
 }
+let peltColorsID = {};
+for (const parameter of COLOR_PARAMETERS) {
+  peltColorsID[parameter.id] = parameter.id;
+}
 let layers = [createLayer(0, "base")];
 let selectedLayerId = layers[0].id;
 function createLayer(patternIndex, colorCategory = "base") {
   return {
     id: crypto.randomUUID(),
     patternIndex,
+    peltColorID: peltColorsID[layers.patternIndex] || null,
     colorCategory,
     colorOverride: null,
     opacity: 1,
@@ -183,8 +188,8 @@ function randomize() {
   // Update everything and force a fresh render
   refreshPelt();
 }
-function savePelt(){const data={version:2,poseIndex:currentPoseIndex,colors:peltColors,layers:layers.map(({patternIndex,colorCategory,colorOverride,opacity,enabled})=>({patternIndex,colorCategory,colorOverride,opacity,enabled}))};downloadBlob(JSON.stringify(data,null,2),"clangen-pelt.json","application/json");}
-function loadPelt(file){const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.colors&&typeof data.colors==="object")for(const p of COLOR_PARAMETERS){const v=normalizeHex(data.colors[p.id]);if(v)peltColors[p.id]=v;}if(!Array.isArray(data.layers))throw new Error("Invalid layer data.");layers=data.layers.filter(l=>Number.isInteger(l.patternIndex)&&patternInfo(l.patternIndex)).map(l=>({id:crypto.randomUUID(),patternIndex:l.patternIndex,colorCategory:l.colorCategory||"base",colorOverride:normalizeHex(l.colorOverride),opacity:Math.max(0,Math.min(1,Number(l.opacity??1))),enabled:l.enabled!==false}));if(!layers.length)layers=[createLayer(0,"base")];selectedLayerId=layers.at(-1).id;if(Number.isInteger(data.poseIndex)&&poseInfo(data.poseIndex)){currentPoseIndex=data.poseIndex;document.getElementById("poseSelect").value=currentPoseIndex;}refreshPelt();setStatus("Pelt loaded.");}catch(err){console.error(err);setStatus("Could not load that pelt file.");}};reader.readAsText(file);}
+function savePelt(){const data={poseIndex:currentPoseIndex,colors:peltColors,layers:layers.map(({patternIndex,peltColorID,colorCategory,colorOverride,opacity,enabled})=>({patternIndex,peltColorID,colorCategory,colorOverride,opacity,enabled}))};downloadBlob(JSON.stringify(data,null,2),"clangen-pelt.json","application/json");}
+function loadPelt(file){const reader=new FileReader();reader.onload=()=>{try{const data=JSON.parse(reader.result);if(data.colors&&typeof data.colors==="object")for(const p of COLOR_PARAMETERS){const v=normalizeHex(data.colors[p.id]);if(v)peltColors[p.id]=v;}if(!Array.isArray(data.layers))throw new Error("Invalid layer data.");layers=data.layers.filter(l=>Number.isInteger(l.patternIndex)&&patternInfo(l.patternIndex)).map(l=>({id:crypto.randomUUID(),patternIndex:l.patternIndex,peltColorID:l.peltColorID,colorCategory:l.colorCategory||"base",colorOverride:normalizeHex(l.colorOverride),opacity:Math.max(0,Math.min(1,Number(l.opacity??1))),enabled:l.enabled!==false}));if(!layers.length)layers=[createLayer(0,"base")];selectedLayerId=layers.at(-1).id;if(Number.isInteger(data.poseIndex)&&poseInfo(data.poseIndex)){currentPoseIndex=data.poseIndex;document.getElementById("poseSelect").value=currentPoseIndex;}refreshPelt();setStatus("Pelt loaded.");}catch(err){console.error(err);setStatus("Could not load that pelt file.");}};reader.readAsText(file);}
 function downloadBlob(text,name,type){const blob=new Blob([text],{type});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function downloadPNG(){const scale=8,output=document.createElement("canvas");output.width=SPRITE_W*scale;output.height=SPRITE_H*scale;const out=output.getContext("2d");out.imageSmoothingEnabled=false;out.drawImage(canvas,0,0,output.width,output.height);output.toBlob(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="clangen-pelt.png";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},"image/png");}
 function setStatus(message){document.getElementById("status").textContent=message;}
