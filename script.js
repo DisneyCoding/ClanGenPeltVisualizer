@@ -20,10 +20,6 @@ let peltColors = createDefaultColors();
 let layers = [createLayer(0, "base")];
 let selectedLayerId = layers[0].id;
 
-function createDefaultColors() {
-  const preset = PELT_COLORS.WHITE || {};
-  return Object.fromEntries(COLOR_PARAMETERS.map(p => [p.id, normalizeHex(preset[p.id]) || "#8A684D"]));
-}
 function createLayer(patternIndex, colorCategory="base") {
   return { id: crypto.randomUUID(), patternIndex, colorCategory, opacity: 1, enabled: true };
 }
@@ -100,10 +96,7 @@ function populateControls(){
   PATTERNS.forEach(p=>{const o=document.createElement("option");o.value=p.index;o.textContent=p.label;pattern.appendChild(o);});
   const cat=document.getElementById("newLayerCategory"); cat.innerHTML="";
   COLOR_PARAMETERS.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.label;cat.appendChild(o);}); cat.value="pattern";
-  const preset=document.getElementById("colorPresetSelect"); preset.innerHTML="";
-  Object.keys(PELT_COLORS).forEach(name=>{const o=document.createElement("option");o.value=name;o.textContent=name;preset.appendChild(o);});
 }
-function applyColorPreset(name){const preset=PELT_COLORS[name];if(!preset)return;for(const p of COLOR_PARAMETERS)peltColors[p.id]=normalizeHex(preset[p.id])||peltColors[p.id]||"#000000";renderColorControls();renderLayers();render();setStatus(`Preset loaded: ${name}`);}
 function randomHex(){return "#"+Math.floor(Math.random()*0x1000000).toString(16).padStart(6,"0").toUpperCase();}
 function randomize(){peltColors.base=randomHex();const usable=PATTERNS.map(p=>p.index).filter(i=>i!==0);layers=[createLayer(0,"base")];const count=1+Math.floor(Math.random()*3);for(let i=0;i<count;i++){layers.push(createLayer(usable[Math.floor(Math.random()*usable.length)],"pattern"));layers.at(-1).opacity=.5+Math.random()*.5;}selectedLayerId=layers.at(-1).id;renderColorControls();renderLayers();render();}
 function savePelt(){const data={version:2,poseIndex:currentPoseIndex,colors:peltColors,layers:layers.map(({patternIndex,colorCategory,colorOverride,opacity,enabled})=>({patternIndex,colorCategory,colorOverride,opacity,enabled}))};downloadBlob(JSON.stringify(data,null,2),"clangen-pelt.json","application/json");}
@@ -117,10 +110,8 @@ document.getElementById("poseSelect").addEventListener("change",e=>{currentPoseI
 document.getElementById("addLayerBtn").addEventListener("click",()=>document.getElementById("patternSelect").focus());
 document.getElementById("confirmAddBtn").addEventListener("click",()=>{const patternIndex=Number(document.getElementById("patternSelect").value);const category=document.getElementById("newLayerCategory").value;const layer=createLayer(patternIndex,category);layers.push(layer);selectedLayerId=layer.id;renderLayers();render();});
 document.getElementById("randomizeBtn").addEventListener("click",randomize);
-document.getElementById("resetBtn").addEventListener("click",()=>{peltColors=createDefaultColors();layers=[createLayer(0,"base")];selectedLayerId=layers[0].id;document.getElementById("colorPresetSelect").value="WHITE";renderColorControls();renderLayers();render();setStatus("Reset.");});
 document.getElementById("downloadBtn").addEventListener("click",downloadPNG);
 document.getElementById("saveBtn").addEventListener("click",savePelt);
 document.getElementById("loadInput").addEventListener("change",e=>{if(e.target.files[0])loadPelt(e.target.files[0]);});
-document.getElementById("colorPresetSelect").addEventListener("change",e=>applyColorPreset(e.target.value));
 
 Promise.all([loadImage(lineart,LINEART_URL,"lineart.png"),loadImage(maskAtlas,MASK_URL,"pelt_parts_masks.png")]).then(()=>{assetsReady=true;populateControls();renderColorControls();renderLayers();render();setStatus("Assets loaded.");}).catch(error=>{console.error(error);populateControls();renderColorControls();renderLayers();setStatus(error.message);});
