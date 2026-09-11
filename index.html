@@ -33,14 +33,35 @@
       </section>
       <section class="controls">
         <div class="section">
-          <div class="section-title"><h2>Layers</h2><button id="addLayerBtn">+ Add pattern</button></div>
+          <div class="section-title">
+            <h2>Colors</h2>
+          </div>
+          <div id="colorControls" class="color-controls"></div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">
+            <h2>Layers</h2>
+            <button id="addLayerBtn">+ Add pattern</button>
+          </div>
           <div id="layers" class="layers"></div>
         </div>
 
         <div class="section add-pattern">
-          <div class="section-title"><h2>Add Pattern</h2></div>
-          <label>Pattern<select id="patternSelect"></select></label>
-          <label>Color<select id="newLayerCategory"></select></label>
+          <div class="section-title">
+            <h2>Add Pattern</h2>
+          </div>
+
+          <label>
+            Pattern
+            <select id="patternSelect"></select>
+          </label>
+
+          <label>
+            Color
+            <select id="newLayerCategory"></select>
+          </label>
+
           <button id="confirmAddBtn">Add Pattern</button>
         </div>
       </section>
