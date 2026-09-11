@@ -22,14 +22,11 @@ for (const parameter of COLOR_PARAMETERS) {
 }
 let layers = [createLayer(0, "base")];
 let selectedLayerId = layers[0].id;
-function createLayer(patternIndex, colorCategory = null) {
-  const assignedColorCategory =
-    colorCategory || PATTERN_COLOR_MAP[patternIndex] || "base";
-
+function createLayer(patternIndex) {
   return {
     id: crypto.randomUUID(),
     patternIndex,
-    colorCategory: assignedColorCategory,
+    colorCategory: PATTERN_COLOR_MAP[patternIndex] || "base",
     colorOverride: null,
     opacity: 1,
     enabled: true
@@ -135,13 +132,47 @@ function renderColorControls(){
     }
   }
 }
-function populateControls(){
-  const pose=document.getElementById("poseSelect"); pose.innerHTML="";
-  POSES.forEach(p=>{const o=document.createElement("option");o.value=p.index;o.textContent=p.label;pose.appendChild(o);}); pose.value=currentPoseIndex;
-  const pattern=document.getElementById("patternSelect"); pattern.innerHTML="";
-  PATTERNS.forEach(p=>{const o=document.createElement("option");o.value=p.index;o.textContent=p.label;pattern.appendChild(o);});
-  const cat=document.getElementById("newLayerCategory"); cat.innerHTML="";
-  COLOR_PARAMETERS.forEach(p=>{const o=document.createElement("option");o.value=p.id;o.textContent=p.label;cat.appendChild(o);}); cat.value="pattern";
+function populateControls() {
+  const pose = document.getElementById("poseSelect");
+  pose.innerHTML = "";
+
+  POSES.forEach(p => {
+    const option = document.createElement("option");
+    option.value = p.index;
+    option.textContent = p.label;
+    pose.appendChild(option);
+  });
+
+  pose.value = currentPoseIndex;
+
+  const pattern = document.getElementById("patternSelect");
+  pattern.innerHTML = "";
+
+  PATTERNS.forEach(p => {
+    const option = document.createElement("option");
+    option.value = p.index;
+    option.textContent = p.label;
+    pattern.appendChild(option);
+  });
+
+  updateAssignedColorCategory();
+}
+function updateAssignedColorCategory() {
+  const patternSelect = document.getElementById("patternSelect");
+  const display = document.getElementById("assignedColorCategory");
+
+  if (!patternSelect || !display) return;
+
+  const patternIndex = Number(patternSelect.value);
+  const colorId = PATTERN_COLOR_MAP[patternIndex] || "base";
+
+  const parameter = COLOR_PARAMETERS.find(
+    p => p.id === colorId
+  );
+
+  display.textContent = parameter
+    ? `${parameter.label} (${parameter.id})`
+    : colorId;
 }
 function randomHex(){return "#"+Math.floor(Math.random()*0x1000000).toString(16).padStart(6,"0").toUpperCase();}
 function refreshPelt() {
@@ -223,11 +254,12 @@ function resetPelt() {
 
 document.getElementById("poseSelect").addEventListener("change",e=>{currentPoseIndex=Number(e.target.value);render();});
 document.getElementById("addLayerBtn").addEventListener("click",()=>document.getElementById("patternSelect").focus());
-document.getElementById("confirmAddBtn").addEventListener("click",()=>{const patternIndex=Number(document.getElementById("patternSelect").value);const category=document.getElementById("newLayerCategory").value;const layer=createLayer(patternIndex,category);layers.push(layer);selectedLayerId=layer.id;renderLayers();render();});
+document.getElementById("confirmAddBtn").addEventListener("click", () => {const patternIndex = Number(document.getElementById("patternSelect").value);const layer = createLayer(patternIndex);layers.push(layer);selectedLayerId = layer.id;renderLayers();render();});
 document.getElementById("randomizeBtn").addEventListener("click",randomize);
 document.getElementById("downloadBtn").addEventListener("click",downloadPNG);
 document.getElementById("saveBtn").addEventListener("click",savePelt);
 document.getElementById("loadInput").addEventListener("change",e=>{if(e.target.files[0])loadPelt(e.target.files[0]);});
 document.getElementById("resetBtn").addEventListener("click",resetPelt);
+document.getElementById("patternSelect").addEventListener("change", updateAssignedColorCategory);
 
 Promise.all([loadImage(lineart,LINEART_URL,"lineart.png"),loadImage(maskAtlas,MASK_URL,"pelt_parts_masks.png")]).then(()=>{assetsReady=true;populateControls();renderColorControls();renderLayers();render();setStatus("Assets loaded.");}).catch(error=>{console.error(error);populateControls();renderColorControls();renderLayers();setStatus(error.message);});

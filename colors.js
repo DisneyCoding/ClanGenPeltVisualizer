@@ -44,5 +44,10 @@ export const PATTERN_COLOR_MAP = {
   33: "newborn_exotic_pattern_fill",
   34: "newborn_exotic_pattern_fill_gradient_top",
   35: "newborn_exotic_light_pattern",
-  36: "newborn_exotic_muzzle"
+  36: "newborn_exotic_muzzle",
+  37: "maskedchin",
+  38: "sokokepatternfillgrad",
+  39: "legbottomgrad",
+  40: "backtailpatterngrad",
+  41: "legpatterngrad"
 };
