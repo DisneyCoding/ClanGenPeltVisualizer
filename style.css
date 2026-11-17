@@ -43,3 +43,27 @@ input[type="color"] { width:42px; height:34px; padding:2px; border:1px solid #aa
 .layer-controls input[type="range"] { width:100%; }
 .opacity-value { font-size:.8rem; color:#666; min-width:40px; text-align:right; }
 @media (max-width:800px) { .workspace { grid-template-columns:1fr; } .preview-panel { position:static; } .header { flex-direction:column; } .preview-wrap { width:220px; height:220px; } #preview { width:210px; height:210px; } }
+.pattern-preview-container {
+    margin: 15px 0;
+    padding: 12px;
+    border: 1px solid #777;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.pattern-preview-container h3 {
+    margin-top: 0;
+}
+
+#patternPreview {
+    width: 150px;
+    height: 150px;
+    image-rendering: pixelated;
+    background-color: #eee;
+    border: 1px solid #777;
+}
+
+#patternPreviewLabel {
+    margin-bottom: 0;
+    font-size: 0.9rem;
+}

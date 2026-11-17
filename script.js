@@ -325,6 +325,91 @@ function render() {
   );
 }
 
+/*
+ * ============================================================
+ * NEW PATTERN PREVIEW
+ * ============================================================
+ */
+
+function renderPatternPreview() {
+    if (!assetsReady) return;
+
+    const previewCanvas = document.getElementById("patternPreview");
+    const previewLabel = document.getElementById("patternPreviewLabel");
+
+    if (!previewCanvas) return;
+
+    const previewCtx = previewCanvas.getContext("2d");
+
+    previewCtx.clearRect(
+        0,
+        0,
+        SPRITE_W,
+        SPRITE_H
+    );
+
+    const patternIndex = Number(
+        document.getElementById("patternSelect").value
+    );
+
+    const colorCategory = document.getElementById("newLayerCategory").value;
+
+    const pattern = patternInfo(patternIndex);
+
+    if (!pattern) return;
+
+    // Get the selected pattern's mask.
+    const mask = getMaskSprite(
+        pattern,
+        currentPoseIndex
+    );
+
+    if (!mask) return;
+
+    // Use the currently selected color parameter.
+    const color = peltColors[colorCategory] || "#FFFFFF";
+
+    // Apply the selected color to the mask.
+    const tinted = tintMask(
+        mask,
+        color,
+        1
+    );
+
+    if (tinted) {
+        previewCtx.drawImage(
+            tinted,
+            0,
+            0
+        );
+    }
+
+    // Draw lineart over the preview.
+    const x = (currentPoseIndex % 4) * SPRITE_W;
+    const y = Math.floor(currentPoseIndex / 4) * SPRITE_H;
+
+    previewCtx.drawImage(
+        lineart,
+        x,
+        y,
+        SPRITE_W,
+        SPRITE_H,
+        0,
+        0,
+        SPRITE_W,
+        SPRITE_H
+    );
+
+    if (previewLabel) {
+        const colorParameter = COLOR_PARAMETERS.find(
+            parameter => parameter.id === colorCategory
+        );
+
+        previewLabel.textContent =
+            `${pattern.label} — ${colorParameter?.label || colorCategory}`;
+    }
+}
+
 
 /*
  * ============================================================
@@ -676,9 +761,9 @@ function renderColorControls() {
             peltColors[parameter.id];
 
           refreshColorCategoryOptions();
-
           renderLayers();
           render();
+          renderPatternPreview();
         }
       );
 
@@ -709,6 +794,9 @@ function renderColorControls() {
 
           renderLayers();
           render();
+
+          renderPatternPreview();
+
         }
       );
 
@@ -923,6 +1011,9 @@ function updateAssignedColorCategory() {
     parameter
       ? `${parameter.label} (${parameter.id})`
       : colorId;
+
+
+  renderPatternPreview();
 }
 
 
@@ -1466,6 +1557,7 @@ document
         Number(e.target.value);
 
       render();
+      renderPatternPreview();
     }
   );
 
@@ -1494,12 +1586,10 @@ document
  * This automatically changes the color-category
  * dropdown to the color associated with that pattern.
  */
-document
-  .getElementById("patternSelect")
-  .addEventListener(
-    "change",
-    updateAssignedColorCategory
-  );
+document.getElementById("patternSelect").addEventListener("change", () => {
+    updateAssignedColorCategory();
+    renderPatternPreview();
+});
 
 
 /*
@@ -1555,6 +1645,12 @@ document
     }
   );
 
+document
+    .getElementById("newLayerCategory")
+    .addEventListener(
+        "change",
+        renderPatternPreview
+    );
 
 /*
  * Randomize.
@@ -1648,6 +1744,8 @@ Promise.all([
     renderLayers();
 
     render();
+
+    renderPatternPreview();
 
     setStatus(
       "Assets loaded."
