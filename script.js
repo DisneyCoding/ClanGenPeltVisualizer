@@ -1574,7 +1574,6 @@ document
  * dropdown to the color associated with that pattern.
  */
 document.getElementById("patternSelect").addEventListener("change", () => {
-    updateAssignedColorCategory();
     renderPatternPreview();
 });
 
