@@ -72,4 +72,4 @@ layers is the custom pelt type if you wanted to make that a pelt recipe, like ho
 
 ## DISCLAIMER
 
-I did you AI(specifically ChatGPT) to help me learn how to do all this, and some of the code is copy and pasted from it, but i did debug it by myself and had the ideas for it all.
+I did you AI(specifically ChatGPT) to help me learn how to do all this, and some of the code is copy and pasted from it because I can't find a better way to do those pieces of code, but i did debug it by myself and had the ideas for it all.
