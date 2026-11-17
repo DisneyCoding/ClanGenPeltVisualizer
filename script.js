@@ -1035,69 +1035,56 @@ function randomHex() {
 }
 
 function randomizeColors() {
-
-  // Randomize the shared color parameters.
-  for (const parameter of COLOR_PARAMETERS) {
-    peltColors[parameter.id] = randomHex();
-  }
-
-  // Give every non-base pattern its own random color.
-  for (const layer of layers) {
-
-    if (layer.patternIndex !== 0) {
-      layer.colorOverride = randomHex();
-    } else {
-      // Keep the base layer using its normal base color.
-      layer.colorOverride = null;
+    // Randomize every color parameter.
+    for (const parameter of COLOR_PARAMETERS) {
+        peltColors[parameter.id] = randomHex();
     }
-  }
 
-  syncColorControls();
+    // Remove direct layer overrides so layers use
+    // their assigned color parameters again.
+    for (const layer of layers) {
+        layer.colorOverride = null;
+    }
+
+    syncColorControls();
 }
 
 
 function randomizePattern() {
-    // Find the existing base layer so its color is preserved.
+    // Preserve the existing base layer and its settings.
     let base = layers.find(layer => layer.patternIndex === 0);
 
-    // Create a base layer if one doesn't exist.
     if (!base) {
         base = createLayer(0);
     }
 
-    // Get all available patterns except the base pattern.
-    // Use each pattern's actual index rather than its array position.
+    // Use actual pattern indices, not array positions.
     const usablePatterns = PATTERNS
-        .filter(pattern => pattern.index !== 0)
-        .map(pattern => pattern.index);
+        .filter(pattern => pattern.index !== 0);
 
-    // Randomly choose between 1 and 3 additional patterns.
-    const count = 1 + Math.floor(Math.random() * 3);
+    // Randomly choose between 1 and 11 additional patterns.
+    const count = 1 + Math.floor(Math.random() * 11);
 
-    // Keep the existing base layer and its color settings.
+    // Shuffle the available patterns so we don't select
+    // the same pattern more than once.
+    const shuffledPatterns = [...usablePatterns]
+        .sort(() => Math.random() - 0.5);
+
     const newLayers = [base];
 
-    // Generate new pattern layers using the existing color system.
-    for (let i = 0; i < count; i++) {
-        const patternIndex = usablePatterns[
-            Math.floor(Math.random() * usablePatterns.length)
-        ];
+    for (let i = 0; i < count && i < shuffledPatterns.length; i++) {
+        const patternIndex = shuffledPatterns[i].index;
 
-        // createLayer automatically assigns the correct color category.
+        // Assign the appropriate color category.
         newLayers.push(createLayer(patternIndex));
     }
 
-    // Replace the existing layers.
     layers = newLayers;
 
-    // Select the newest layer.
     selectedLayerId = layers[layers.length - 1].id;
 
-    // Refresh the interface and preview.
     refreshPelt();
 }
-
-
 
 /*
  * ============================================================
