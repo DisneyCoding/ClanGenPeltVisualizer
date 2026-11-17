@@ -718,6 +718,28 @@ function renderColorControls() {
   }
 }
 
+/*
+ * ============================================================
+ * SYNCHRONIZE COLOR CONTROLS
+ * ============================================================
+ */
+
+function syncColorControls() {
+
+  // Rebuild the color pickers and hex inputs
+  // using the current values in peltColors.
+  renderColorControls();
+
+  // Update the color-category dropdown.
+  refreshColorCategoryOptions();
+
+  // Update the layer color previews.
+  renderLayers();
+
+  // Update the cat preview.
+  render();
+}
+
 
 /*
  * ============================================================
@@ -911,99 +933,79 @@ function updateAssignedColorCategory() {
  */
 
 function randomHex() {
+    // Generate a random number between 0 and 16777215.
+    const randomColor = Math.floor(Math.random() * 0xFFFFFF);
 
-  return (
-    "#" +
-    Math.floor(
-      Math.random() * 0x1000000
-    )
-      .toString(16)
-      .padStart(6, "0")
-      .toUpperCase()
-  );
+    // Convert the number to a hexadecimal string.
+    const hex = randomColor.toString(16).padStart(6, "0");
+
+    // Return the color with a # prefix.
+    return "#" + hex.toUpperCase();
 }
 
+function randomizeColors() {
 
-function randomize() {
-
-  /*
-   * Give every COLOR_PARAMETERS entry
-   * its own random color.
-   *
-   * This is important because different
-   * pelt parts can reference different
-   * color parameters.
-   */
+  // Randomize the shared color parameters.
   for (const parameter of COLOR_PARAMETERS) {
-
-    peltColors[parameter.id] =
-      randomHex();
+    peltColors[parameter.id] = randomHex();
   }
 
+  // Give every non-base pattern its own random color.
+  for (const layer of layers) {
 
-  /*
-   * Get every pattern except BASEMASK.
-   */
-  const usablePatterns =
-    PATTERNS
-      .map(pattern => pattern.index)
-      .filter(index => index !== 0);
-
-
-  /*
-   * Base layer.
-   */
-  layers = [
-    createLayer(0)
-  ];
-
-
-  /*
-   * Add 1–3 random patterns.
-   *
-   * createLayer() automatically chooses
-   * the COLOR_PARAMETERS category associated
-   * with each pattern.
-   */
-  const count =
-    1 + Math.floor(
-      Math.random() * 3
-    );
-
-
-  for (let i = 0; i < count; i++) {
-
-    const patternIndex =
-      usablePatterns[
-        Math.floor(
-          Math.random() *
-          usablePatterns.length
-        )
-      ];
-
-
-    const layer =
-      createLayer(patternIndex);
-
-
-    layer.opacity =
-      0.5 +
-      Math.random() * 0.5;
-
-
-    layers.push(layer);
+    if (layer.patternIndex !== 0) {
+      layer.colorOverride = randomHex();
+    } else {
+      // Keep the base layer using its normal base color.
+      layer.colorOverride = null;
+    }
   }
 
-
-  /*
-   * Select the top layer.
-   */
-  selectedLayerId =
-    layers.at(-1).id;
-
-
-  refreshPelt();
+  syncColorControls();
 }
+
+
+function randomizePattern() {
+    // Find the existing base layer so its color is preserved.
+    let base = layers.find(layer => layer.patternIndex === 0);
+
+    // Create a base layer if one doesn't exist.
+    if (!base) {
+        base = createLayer(0);
+    }
+
+    // Get all available patterns except the base pattern.
+    // Use each pattern's actual index rather than its array position.
+    const usablePatterns = PATTERNS
+        .filter(pattern => pattern.index !== 0)
+        .map(pattern => pattern.index);
+
+    // Randomly choose between 1 and 3 additional patterns.
+    const count = 1 + Math.floor(Math.random() * 3);
+
+    // Keep the existing base layer and its color settings.
+    const newLayers = [base];
+
+    // Generate new pattern layers using the existing color system.
+    for (let i = 0; i < count; i++) {
+        const patternIndex = usablePatterns[
+            Math.floor(Math.random() * usablePatterns.length)
+        ];
+
+        // createLayer automatically assigns the correct color category.
+        newLayers.push(createLayer(patternIndex));
+    }
+
+    // Replace the existing layers.
+    layers = newLayers;
+
+    // Select the newest layer.
+    selectedLayerId = layers[layers.length - 1].id;
+
+    // Refresh the interface and preview.
+    refreshPelt();
+}
+
 
 
 /*
@@ -1557,12 +1559,9 @@ document
 /*
  * Randomize.
  */
-document
-  .getElementById("randomizeBtn")
-  .addEventListener(
-    "click",
-    randomize
-  );
+document.getElementById("randomizeColorBtn").addEventListener("click", randomizeColors);
+
+document.getElementById("randomizePatternBtn").addEventListener("click", randomizePattern);
 
 
 /*
