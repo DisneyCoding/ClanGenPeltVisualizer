@@ -19,7 +19,10 @@
     <section class="workspace">
       <section class="preview-panel panel">
         <div class="panel-heading"><h2>Preview</h2></div>
-        <div class="preview-wrap"><canvas id="preview" width="50" height="50"></canvas></div>
+        <div class="preview-wrap">
+          <canvas id="preview" width="50" height="50"></canvas>
+        </div>
+        <button id="flipBtn" type="button">Flip</button>
         <label>Pose<select id="poseSelect"></select></label>
         <div class="button-row">
           <button id="randomizeColorBtn">Randomize Color</button>
@@ -37,6 +40,19 @@
           <div class="section-title">
             <h2>Colors</h2>
           </div>
+
+          <label>
+            Pelt Recipe
+            <select id="recipeSelect">
+              <option value="">Manual Layers</option>
+            </select>
+          </label>
+
+          <label>
+            Color Palette
+            <select id="paletteSelect"></select>
+          </label>
+
           <div id="colorControls" class="color-controls"></div>
         </div>
 

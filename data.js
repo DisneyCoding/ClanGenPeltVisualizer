@@ -40,7 +40,9 @@ export const PATTERNS = [
   { id: "SOKOKEPATTERNFILLGRAD", label: "Sokokepatternfillgrad", index: 38, groupX: 8, groupY: 0 },
   { id: "LEGBOTTOMGRAD", label: "Legbottomgrad", index: 39, groupX: 9, groupY: 0 },
   { id: "BACKTAILPATTERNGRAD", label: "Backtailpatterngrad", index: 40, groupX: 0, groupY: 4 },
-  { id: "LEGPATTERNGRAD", label: "Legpatterngrad", index: 41, groupX: 1, groupY: 4}
+  { id: "LEGPATTERNGRAD", label: "Legpatterngrad", index: 41, groupX: 1, groupY: 4 },
+  { id: "MASKEDEYEBROWS", label: "Maskedeyebrows", index: 42, groupX: 2, groupY: 4 },
+  { id: "FRONTPATTERNGRAD", label: "Frontpatterngrad", index: 43, groupX: 3, groupY: 4 }
 ];
 
 export const POSES = [

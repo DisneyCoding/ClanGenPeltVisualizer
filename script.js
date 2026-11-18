@@ -1,8 +1,14 @@
 import { PATTERNS, POSES } from "./data.js";
 import { COLOR_PARAMETERS, PATTERN_COLOR_MAP } from "./colors.js";
 
+const PATTERN_BY_ID = new Map(
+  PATTERNS.map(pattern => [pattern.id, pattern])
+);
+
 const LINEART_URL = "assets/lineart.png";
 const MASK_URL = "assets/pelt_parts_masks.png";
+
+const PALETTE_URL = "pelt_color_palettes.json";
 
 const SPRITE_W = 50;
 const SPRITE_H = 50;
@@ -23,6 +29,38 @@ const maskAtlas = new Image();
 let assetsReady = false;
 let currentPoseIndex = 18;
 
+let isFlipped = false;
+
+/*
+ * ============================================================
+ * PELT RECIPES
+ * ============================================================
+ */
+
+const RECIPE_FILES = {
+  SingleColor: "SingleColourRecipe.json",
+  Tabby: "TabbyRecipe.json",
+  Ticked: "TickedRecipe.json",
+  Mackerel: "MackerelRecipe.json",
+  Sokoke: "SokokeRecipe.json",
+  Agouti: "AgoutiRecipe.json",
+  Speckled: "SpeckledRecipe.json",
+  Rosette: "RosetteRecipe.json",
+  Freckled: "FreckledRecipe.json",
+  Smoke: "SmokeRecipe.json",
+  SingleStripe: "SinglestripeRecipe.json",
+  Bengal: "BengalRecipe.json",
+  Marbled: "MarbledRecipe.json",
+  Masked: "MaskedRecipe.json"
+};
+
+let peltRecipes = {};
+
+let selectedRecipe = "";
+let activeRecipeLayers = [];
+
+// Preserves nested recipe groups and their blend settings.
+let activeRecipeTree = null;
 
 /*
  * ============================================================
@@ -35,6 +73,9 @@ let peltColors = {};
 for (const parameter of COLOR_PARAMETERS) {
   peltColors[parameter.id] = "#FFFFFF";
 }
+
+let colorPalettes = {};
+let selectedPalette = "WHITE";
 
 
 /*
@@ -107,8 +148,808 @@ let layers = [
   createLayer(0)
 ];
 
+let recipeEditorLayers = [];
 let selectedLayerId = layers[0].id;
 
+/*
+ * ============================================================
+ * RECIPE LOADER
+ * ============================================================
+ */
+
+async function loadPeltRecipes() {
+
+  const loadedRecipes = {};
+
+  for (const [name, filename] of Object.entries(RECIPE_FILES)) {
+
+    const response = await fetch(
+      `assets/pelt_recipes/${filename}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Could not load recipe: ${filename}`
+      );
+    }
+
+    const recipe = await response.json();
+
+    if (
+      !recipe ||
+      !recipe.layers ||
+      !recipe.layer_order
+    ) {
+      throw new Error(
+        `Invalid recipe structure: ${filename}`
+      );
+    }
+
+    loadedRecipes[name] = recipe;
+  }
+
+  peltRecipes = loadedRecipes;
+
+  console.log(
+    "Loaded pelt recipes:",
+    Object.keys(peltRecipes)
+  );
+}
+
+/*
+ * ============================================================
+ * RECIPE SELECTOR
+ * ============================================================
+ */
+
+function populateRecipeSelect() {
+  const select = document.getElementById("recipeSelect");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  // Manual layer editing remains available.
+  const manualOption = document.createElement("option");
+  manualOption.value = "";
+  manualOption.textContent = "Manual Layers";
+  select.appendChild(manualOption);
+
+  for (const recipeName of Object.keys(peltRecipes)) {
+    const option = document.createElement("option");
+
+    option.value = recipeName;
+    option.textContent = recipeName;
+
+    select.appendChild(option);
+  }
+
+  select.value = selectedRecipe;
+}
+
+
+/*
+ * Select a recipe and resolve its layers.
+ */
+function selectPeltRecipe(recipeName) {
+
+  const recipeSelect =
+    document.getElementById("recipeSelect");
+
+  if (recipeSelect) {
+    recipeSelect.value = recipeName || "";
+  }
+
+  if (!recipeName) {
+
+    selectedRecipe = "";
+
+    activeRecipeLayers = [];
+    recipeEditorLayers = [];
+    activeRecipeTree = null;
+
+    renderLayers();
+    render();
+
+    setStatus("Manual layers selected.");
+
+    return;
+  }
+
+  const recipe = peltRecipes[recipeName];
+
+  if (!recipe) {
+    setStatus("Recipe could not be found.");
+    return;
+  }
+
+  selectedRecipe = recipeName;
+
+  activeRecipeLayers = resolveRecipeLayers(recipe);
+  recipeEditorLayers = createEditableRecipeLayers(
+    activeRecipeLayers
+  );
+
+  setStatus(
+    `${recipeName} selected. ${activeRecipeLayers.length} recipe layers loaded.`
+  );
+
+  console.log("Selected recipe:", recipeName);
+  console.log("Resolved recipe layers:", activeRecipeLayers);
+  console.log("Recipe render tree:", activeRecipeTree);
+
+  renderLayers();
+  render();
+}
+
+/*
+ * ============================================================
+ * RECIPE LAYER RESOLVER
+ * ============================================================
+ */
+
+
+/*
+ * Recursively expands nested layer-order arrays.
+ *
+ * ClanGen recipes can group layers together.
+ * We preserve their order and group information.
+ */
+function flattenRecipeOrder(order, result = [], groupPath = []) {
+
+  if (!Array.isArray(order)) {
+    return result;
+  }
+
+  for (const item of order) {
+
+    if (Array.isArray(item)) {
+
+      const groupId = groupPath.length
+        ? `${groupPath.join(".")}.${result.length}`
+        : String(result.length);
+
+      flattenRecipeOrder(
+        item,
+        result,
+        [...groupPath, groupId]
+      );
+
+    } else {
+
+      if (String(item).startsWith("+blend_mode:")) {
+
+        result.push({
+          instruction: String(item),
+          groupPath
+        });
+
+      } else {
+
+        result.push({
+          layerId: String(item),
+          groupPath
+        });
+
+      }
+    }
+  }
+
+  return result;
+}
+
+
+/*
+ * ============================================================
+ * RECIPE RENDER TREE
+ * ============================================================
+ */
+
+/*
+ * Parse a blend instruction.
+ *
+ * Examples:
+ * +blend_mode:mask
+ * +blend_mode:multiply
+ * +blend_mode:mask,opacity:50
+ */
+function parseBlendInstruction(instruction, group) {
+
+  const settings = String(instruction)
+    .replace("+blend_mode:", "")
+    .split(",");
+
+  for (const setting of settings) {
+
+    const [key, value] = setting
+      .split(":")
+      .map(part => part.trim());
+
+    if (key === "mask" || key === "multiply" || key === "normal") {
+      group.blendMode = key;
+    }
+
+    if (key === "opacity") {
+
+      const opacity = Number(value);
+
+      if (Number.isFinite(opacity)) {
+        group.opacity = Math.max(
+          0,
+          Math.min(100, opacity)
+        );
+      }
+    }
+  }
+}
+
+
+/*
+ * Recursively convert recipe layer_order into
+ * a tree of layers and compound groups.
+ */
+function parseRecipeOrderTree(order) {
+
+  function parseGroup(items) {
+
+    const group = {
+      type: "group",
+      blendMode: "normal",
+      opacity: 100,
+      children: []
+    };
+
+    for (const item of items) {
+
+      // Nested arrays become compound groups.
+      if (Array.isArray(item)) {
+
+        group.children.push(
+          parseGroup(item)
+        );
+
+        continue;
+      }
+
+      const value = String(item);
+
+      // Blend instructions modify their containing group.
+      if (value.startsWith("+blend_mode:")) {
+
+        parseBlendInstruction(
+          value,
+          group
+        );
+
+        continue;
+      }
+
+      // Ordinary recipe layer.
+      group.children.push({
+        type: "layer",
+        id: value
+      });
+    }
+
+    return group;
+  }
+
+  return parseGroup(order);
+}
+
+
+/*
+ * Resolve the render tree's layer references
+ * into actual mask and color information.
+ */
+function resolveRecipeRenderTree(order, recipeLayerData) {
+
+  const tree = parseRecipeOrderTree(order);
+
+  function resolveNode(node) {
+
+    if (node.type === "group") {
+
+      return {
+        ...node,
+
+        children: node.children
+          .map(resolveNode)
+          .filter(Boolean)
+      };
+    }
+
+    const layerData = recipeLayerData[node.id];
+
+    if (!layerData) {
+
+      console.warn(
+        `Render tree layer ${node.id} is missing.`
+      );
+
+      return null;
+    }
+
+    const maskPattern = PATTERN_BY_ID.get(
+      layerData.group_name
+    );
+
+    if (!maskPattern) {
+
+      console.warn(
+        `Mask pattern ${layerData.group_name} was not found.`
+      );
+    }
+
+    return {
+
+      type: "layer",
+
+      id: node.id,
+
+      groupName: layerData.group_name,
+
+      maskPattern: maskPattern || null,
+
+      maskIndex: maskPattern?.index ?? null,
+
+      groupX: maskPattern?.groupX ?? null,
+
+      groupY: maskPattern?.groupY ?? null,
+
+      colorParameter: layerData.color || null,
+
+      blendMode: layerData.blend_mode || "normal",
+
+      opacity: layerData.opacity ?? 100
+
+    };
+  }
+
+  return resolveNode(tree);
+}
+
+
+
+/*
+ * Check whether an exception applies to the
+ * currently selected palette and pose.
+ */
+function recipeExceptionMatches(exception) {
+
+  // Check palette restrictions.
+  if (exception.colors) {
+
+    const allowedColors = Array.isArray(exception.colors)
+      ? exception.colors
+      : [exception.colors];
+
+    if (!allowedColors.includes(selectedPalette)) {
+      return false;
+    }
+  }
+
+  // Check pose restrictions.
+  if (exception.poses) {
+
+    const currentPose = POSES.find(
+      pose => pose.index === currentPoseIndex
+    );
+
+    if (!currentPose) {
+      return false;
+    }
+
+    const allowedPoses = exception.poses.map(
+      pose => String(pose).toLowerCase()
+    );
+
+    const currentPoseId = String(
+      currentPose.id
+    ).toLowerCase();
+
+    if (!allowedPoses.includes(currentPoseId)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+
+function getRecipeExceptionSpecificity(exception) {
+  let specificity = 0;
+
+  if (exception.colors) {
+    specificity++;
+  }
+
+  if (exception.poses) {
+    specificity++;
+  }
+
+  return specificity;
+}
+
+
+/*
+ * Resolve the base recipe and its applicable exceptions.
+ */
+
+function resolveRecipeLayers(recipe) {
+  let layerOrder = recipe.layer_order;
+
+  let recipeLayerData = {
+    ...recipe.layers
+  };
+
+  // Find the most specific matching exception.
+  let bestException = null;
+  let bestSpecificity = -1;
+
+  for (const exception of recipe.exceptions || []) {
+    if (!recipeExceptionMatches(exception)) {
+      continue;
+    }
+
+    const specificity =
+      getRecipeExceptionSpecificity(exception);
+
+    if (specificity > bestSpecificity) {
+      bestSpecificity = specificity;
+      bestException = exception;
+    }
+  }
+
+  // Apply only the most specific matching exception.
+  if (bestException) {
+    if (bestException.layer_order) {
+      layerOrder = bestException.layer_order;
+    }
+
+    if (bestException.layers) {
+      recipeLayerData = {
+        ...recipeLayerData,
+        ...bestException.layers
+      };
+    }
+  }
+
+  // Build the nested structure used by the recipe renderer.
+  activeRecipeTree = resolveRecipeRenderTree(
+    layerOrder,
+    recipeLayerData
+  );
+
+  // Keep the existing flattened layers for the layer editor.
+  const orderedLayers = flattenRecipeOrder(layerOrder);
+  const resolvedLayers = [];
+
+  for (const entry of orderedLayers) {
+    if (entry.instruction) {
+      resolvedLayers.push({
+        type: "instruction",
+        instruction: entry.instruction
+      });
+
+      continue;
+    }
+
+    const layerData = recipeLayerData[entry.layerId];
+
+    if (!layerData) {
+      console.warn(
+        `Recipe layer ${entry.layerId} is missing.`
+      );
+
+      continue;
+    }
+
+    const maskPattern = PATTERN_BY_ID.get(
+      layerData.group_name
+    );
+
+    if (!maskPattern) {
+      console.warn(
+        `Mask pattern ${layerData.group_name} was not found in PATTERNS.`
+      );
+    }
+
+    resolvedLayers.push({
+      type: "layer",
+      id: entry.layerId,
+      groupPath: entry.groupPath,
+      groupName: layerData.group_name,
+      maskPattern: maskPattern || null,
+      maskIndex: maskPattern?.index ?? null,
+      groupX: maskPattern?.groupX ?? null,
+      groupY: maskPattern?.groupY ?? null,
+      colorParameter: layerData.color || null,
+      blendMode: layerData.blend_mode || "normal",
+      opacity: layerData.opacity ?? 100
+    });
+  }
+
+  return resolvedLayers;
+}
+
+/*
+ * Convert resolved recipe layers into editable layers.
+ */
+
+function createEditableRecipeLayers(recipeLayers, previousLayers = []) {
+  const previousLayerMap = new Map(
+    previousLayers.map(layer => [
+      layer.recipeLayerId,
+      layer
+    ])
+  );
+
+  return recipeLayers
+    .filter(layer => layer.type === "layer")
+    .map(layer => {
+      const previous = previousLayerMap.get(layer.id);
+
+      return {
+        id: crypto.randomUUID(),
+
+        recipeLayerId: layer.id,
+
+        patternIndex: layer.maskIndex,
+
+        groupName: layer.groupName,
+
+        colorCategory: layer.colorParameter,
+
+        colorOverride: null,
+
+        opacity: previous
+          ? previous.opacity
+          : layer.opacity / 100,
+
+        enabled: previous
+          ? previous.enabled
+          : true,
+
+        blendMode: layer.blendMode,
+
+        groupPath: layer.groupPath,
+
+        isRecipeLayer: true
+      };
+    });
+}
+
+
+function reorderRecipeTreeFromEditor(node, previousLayers) {
+  if (!node || node.type !== "group") return;
+
+  const previousOrder = new Map(
+    previousLayers.map((layer, index) => [
+      layer.recipeLayerId,
+      index
+    ])
+  );
+
+  // Process nested groups first.
+  for (const child of node.children) {
+    if (child.type === "group") {
+      reorderRecipeTreeFromEditor(child, previousLayers);
+    }
+  }
+
+  // Reorder consecutive layers without moving
+  // layers across compound group boundaries.
+  let start = 0;
+
+  while (start < node.children.length) {
+    if (node.children[start].type !== "layer") {
+      start++;
+      continue;
+    }
+
+    let end = start;
+
+    while (
+      end < node.children.length &&
+      node.children[end].type === "layer"
+    ) {
+      end++;
+    }
+
+    const originalPositions = node.children
+      .slice(start, end);
+
+    const sortedLayers = originalPositions
+      .map((layer, index) => ({
+        layer,
+        originalIndex: index
+      }))
+      .sort((a, b) => {
+        const aRank = previousOrder.has(a.layer.id)
+          ? previousOrder.get(a.layer.id)
+          : Infinity;
+
+        const bRank = previousOrder.has(b.layer.id)
+          ? previousOrder.get(b.layer.id)
+          : Infinity;
+
+        if (aRank !== bRank) {
+          return aRank - bRank;
+        }
+
+        return a.originalIndex - b.originalIndex;
+      })
+      .map(item => item.layer);
+
+    node.children.splice(
+      start,
+      sortedLayers.length,
+      ...sortedLayers
+    );
+
+    start = end;
+  }
+}
+
+
+function synchronizeRecipeEditorOrder() {
+  const recipeOrder = [];
+
+  function collectLayerOrder(node) {
+    if (!node) return;
+
+    if (node.type === "layer") {
+      recipeOrder.push(node.id);
+      return;
+    }
+
+    for (const child of node.children || []) {
+      collectLayerOrder(child);
+    }
+  }
+
+  collectLayerOrder(activeRecipeTree);
+
+  const orderMap = new Map(
+    recipeOrder.map((id, index) => [id, index])
+  );
+
+  recipeEditorLayers.sort((a, b) => {
+    return (
+      (orderMap.get(a.recipeLayerId) ?? Infinity) -
+      (orderMap.get(b.recipeLayerId) ?? Infinity)
+    );
+  });
+
+  activeRecipeLayers.sort((a, b) => {
+    return (
+      (orderMap.get(a.id) ?? Infinity) -
+      (orderMap.get(b.id) ?? Infinity)
+    );
+  });
+}
+
+
+/*
+ * ============================================================
+ * COLOR PALETTE LOADER
+ * ============================================================
+ */
+
+async function loadColorPalettes() {
+  const response = await fetch(PALETTE_URL);
+
+  if (!response.ok) {
+    throw new Error("Could not load color palettes.");
+  }
+
+  const palettes = await response.json();
+
+  if (
+    !palettes ||
+    typeof palettes !== "object" ||
+    Array.isArray(palettes)
+  ) {
+    throw new Error("Invalid color palette file.");
+  }
+
+  colorPalettes = palettes;
+
+  if (!colorPalettes.WHITE) {
+    throw new Error("The WHITE color palette is missing.");
+  }
+
+  console.log(
+    "Loaded color palettes:",
+    Object.keys(colorPalettes)
+  );
+}
+
+/*
+ * ============================================================
+ * COLOR PALETTE SELECTION
+ * ============================================================
+ */
+
+function populatePaletteSelect() {
+  const select = document.getElementById("paletteSelect");
+
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  // Add all available ClanGen palettes.
+  for (const paletteName of Object.keys(colorPalettes)) {
+    const option = document.createElement("option");
+
+    option.value = paletteName;
+    option.textContent = paletteName;
+
+    select.appendChild(option);
+  }
+
+  // Add the custom option.
+  const customOption = document.createElement("option");
+
+  customOption.value = "Custom";
+  customOption.textContent = "Custom";
+
+  select.appendChild(customOption);
+
+  select.value = selectedPalette;
+}
+
+
+function applyColorPalette(paletteName) {
+  const palette = colorPalettes[paletteName];
+
+  if (!palette) return;
+
+  selectedPalette = paletteName;
+
+  /*
+   * Apply the palette's color to every registered
+   * color parameter.
+   *
+   * Parameters missing from a palette receive white
+   * instead of retaining colors from the previous palette.
+   */
+  for (const parameter of COLOR_PARAMETERS) {
+    const paletteColor = normalizeHex(
+      palette[parameter.id]
+    );
+
+    peltColors[parameter.id] =
+      paletteColor || "#FFFFFF";
+  }
+
+  const select = document.getElementById("paletteSelect");
+
+  if (select) {
+    select.value = paletteName;
+  }
+
+  syncColorControls();
+  renderPatternPreview();
+
+  setStatus(`Applied ${paletteName} palette.`);
+
+  if (selectedRecipe) {
+    selectPeltRecipe(selectedRecipe);
+  }
+}
+
+
+function markPaletteCustom() {
+  selectedPalette = "Custom";
+
+  const select = document.getElementById("paletteSelect");
+
+  if (select) {
+    select.value = "Custom";
+  }
+}
 
 /*
  * ============================================================
@@ -178,6 +1019,96 @@ function getColorForLayer(layer) {
   );
 }
 
+function getRecipeLayerColor(recipeLayer) {
+
+  if (!recipeLayer.colorParameter) {
+    return "#FFFFFF";
+  }
+
+  return peltColors[recipeLayer.colorParameter] || "#FFFFFF";
+}
+
+
+function renderRecipeLayers() {
+  if (!activeRecipeTree) return;
+
+  for (const child of activeRecipeTree.children) {
+    const layerCanvas = renderRecipeTreeNode(child);
+
+    if (!layerCanvas) continue;
+
+    compositeCanvas(
+      ctx.canvas,
+      layerCanvas,
+      child.blendMode || "normal",
+      getRecipeNodeOpacity(child)
+    );
+  }
+}
+
+
+
+function getEditableRecipeLayer(recipeLayerId) {
+  return recipeEditorLayers.find(
+    layer => layer.recipeLayerId === recipeLayerId
+  );
+}
+
+
+function getRecipeNodeOpacity(node) {
+  if (node.type === "layer") {
+    const editableLayer = getEditableRecipeLayer(node.id);
+
+    return editableLayer
+      ? editableLayer.opacity
+      : (node.opacity ?? 100) / 100;
+  }
+
+  return (node.opacity ?? 100) / 100;
+}
+
+
+
+function renderRecipeTreeNode(node) {
+  if (!node) return null;
+
+  // A recipe layer
+  if (node.type === "layer") {
+    const editableLayer = getEditableRecipeLayer(node.id);
+
+    if (!editableLayer || !editableLayer.enabled) {
+      return null;
+    }
+
+    const layerCanvas = createRecipeLayerCanvas({
+      ...editableLayer,
+      blendMode: node.blendMode || editableLayer.blendMode
+    });
+
+    return layerCanvas;
+  }
+
+  // A compound group
+  const groupCanvas = document.createElement("canvas");
+  groupCanvas.width = SPRITE_W;
+  groupCanvas.height = SPRITE_H;
+
+  for (const child of node.children) {
+    const childCanvas = renderRecipeTreeNode(child);
+
+    if (!childCanvas) continue;
+
+    compositeCanvas(
+      groupCanvas,
+      childCanvas,
+      child.blendMode || "normal",
+      getRecipeNodeOpacity(child)
+    );
+  }
+
+  return groupCanvas;
+}
+
 
 /*
  * ============================================================
@@ -207,6 +1138,93 @@ function tintMask(maskCanvas, color, opacity) {
 
   return output;
 }
+
+
+/*
+ * Apply a blend mode when drawing one canvas
+ * onto another.
+ */
+
+function compositeCanvas(
+  destination,
+  source,
+  blendMode = "normal",
+  opacity = 1
+) {
+  const context = destination.getContext("2d");
+
+  opacity = Math.max(0, Math.min(1, opacity));
+
+  // ClanGen mask blending:
+  // Multiply all four RGBA channels.
+  if (blendMode === "mask") {
+    const destinationData = context.getImageData(
+      0, 0, destination.width, destination.height
+    );
+
+    const sourceData = source.getContext("2d").getImageData(
+      0, 0, source.width, source.height
+    );
+
+    const destinationPixels = destinationData.data;
+    const sourcePixels = sourceData.data;
+
+    for (let i = 0; i < destinationPixels.length; i += 4) {
+      for (let channel = 0; channel < 4; channel++) {
+        const original = destinationPixels[i + channel];
+
+        const multiplied =
+          original * sourcePixels[i + channel] / 255;
+
+        destinationPixels[i + channel] = Math.round(
+          original * (1 - opacity) +
+          multiplied * opacity
+        );
+      }
+    }
+
+    context.putImageData(destinationData, 0, 0);
+    return;
+  }
+
+  // Normal and multiply blending.
+  context.save();
+  context.globalAlpha = opacity;
+
+  if (blendMode === "multiply") {
+    context.globalCompositeOperation = "multiply";
+  } else {
+    context.globalCompositeOperation = "source-over";
+  }
+
+  context.drawImage(source, 0, 0);
+  context.restore();
+}
+
+
+
+
+/*
+ * Create a colored canvas for one recipe layer.
+ */
+
+
+function createRecipeLayerCanvas(layer) {
+  if (!layer.enabled) return null;
+
+  const pattern = patternInfo(layer.patternIndex);
+  if (!pattern) return null;
+
+  const mask = getMaskSprite(pattern, currentPoseIndex);
+  if (!mask) return null;
+
+  const color = getColorForLayer(layer);
+
+  return tintMask(mask, color, 1);
+}
+
+
+
 
 
 function getMaskSprite(pattern, poseIndex) {
@@ -251,6 +1269,7 @@ function getMaskSprite(pattern, poseIndex) {
  */
 
 function render() {
+
   if (!assetsReady) return;
 
   ctx.clearRect(
@@ -260,47 +1279,58 @@ function render() {
     SPRITE_H
   );
 
+  ctx.save();
+
+  if (isFlipped) {
+    ctx.translate(SPRITE_W, 0);
+    ctx.scale(-1, 1);
+  }
+
   /*
-   * Draw each enabled pelt-part layer.
-   *
-   * Each layer can have a different colorCategory,
-   * meaning different pelt parts can use completely
-   * different colors.
+   * Draw either the selected recipe
+   * or the manually configured layers.
    */
-  for (const layer of layers) {
-    if (!layer.enabled) continue;
+  if (selectedRecipe && activeRecipeLayers.length > 0) {
 
-    const pattern = patternInfo(layer.patternIndex);
+    renderRecipeLayers();
 
-    if (!pattern) continue;
+  } else {
 
-    const mask = getMaskSprite(
-      pattern,
-      currentPoseIndex
-    );
+    for (const layer of layers) {
 
-    if (!mask) continue;
+      if (!layer.enabled) continue;
 
-    const color = getColorForLayer(layer);
+      const pattern = patternInfo(layer.patternIndex);
 
-    const tinted = tintMask(
-      mask,
-      color,
-      layer.opacity
-    );
+      if (!pattern) continue;
 
-    if (tinted) {
-      ctx.drawImage(
-        tinted,
-        0,
-        0
+      const mask = getMaskSprite(
+        pattern,
+        currentPoseIndex
       );
+
+      if (!mask) continue;
+
+      const color = getColorForLayer(layer);
+
+      const tinted = tintMask(
+        mask,
+        color,
+        layer.opacity
+      );
+
+      if (tinted) {
+        ctx.drawImage(
+          tinted,
+          0,
+          0
+        );
+      }
     }
   }
 
-
   /*
-   * Draw the lineart over the colored masks.
+   * Draw lineart over the colored masks.
    */
   const x =
     (currentPoseIndex % 4) * SPRITE_W;
@@ -310,19 +1340,17 @@ function render() {
 
   ctx.drawImage(
     lineart,
-
     x,
     y,
-
     SPRITE_W,
     SPRITE_H,
-
     0,
     0,
-
     SPRITE_W,
     SPRITE_H
   );
+
+  ctx.restore();
 }
 
 /*
@@ -417,20 +1445,29 @@ function renderPatternPreview() {
  * ============================================================
  */
 
+
 function renderLayers() {
   const container =
     document.getElementById("layers");
 
   container.innerHTML = "";
 
+  // Choose which collection the editor displays.
+  const editingRecipe = Boolean(selectedRecipe);
+
+  const displayedLayers = editingRecipe
+    ? recipeEditorLayers
+    : layers;
+
   /*
    * Reverse the array so the topmost layer appears first
    * in the interface.
    */
-  [...layers].reverse().forEach(layer => {
+  [...displayedLayers].reverse().forEach(layer => {
+
     const pattern =
       patternInfo(layer.patternIndex) || {
-        label: "Unknown pattern"
+        label: layer.groupName || "Unknown pattern"
       };
 
     const row =
@@ -442,7 +1479,6 @@ function renderLayers() {
         ? " selected"
         : "");
 
-
     row.innerHTML = `
       <div class="layer-top">
 
@@ -453,7 +1489,7 @@ function renderLayers() {
         >
 
         <div class="layer-name">
-          ${pattern.label}
+          ${layer.groupName || pattern.label}
         </div>
 
         <div class="layer-buttons">
@@ -477,12 +1513,6 @@ function renderLayers() {
       <div class="layer-controls">
 
         <input
-          class="layer-color"
-          type="color"
-          value="${getColorForLayer(layer)}"
-        >
-
-        <input
           class="layer-opacity"
           type="range"
           min="0"
@@ -498,47 +1528,35 @@ function renderLayers() {
       </div>
     `;
 
-
     /*
      * Select layer.
      */
     row.addEventListener("click", () => {
       selectedLayerId = layer.id;
-
       renderLayers();
     });
-
 
     /*
      * Enable / disable layer.
      */
-    row
-      .querySelector(".layer-enabled")
-      .addEventListener("change", e => {
-
-        layer.enabled =
-          e.target.checked;
-
-        render();
-      });
-
-
+    
     /*
-     * Direct color override.
-     *
-     * If the user manually changes this color,
-     * the layer stops using its COLOR_PARAMETERS
-     * category and instead uses this exact color.
-     */
-    row
-      .querySelector(".layer-color")
-      .addEventListener("input", e => {
+    * Enable / disable layer.
+    */
+    const enabledCheckbox =
+      row.querySelector(".layer-enabled");
 
-        layer.colorOverride =
-          e.target.value.toUpperCase();
+    // Prevent checkbox clicks from selecting the parent row.
+    enabledCheckbox.addEventListener("click", e => {
+      e.stopPropagation();
+    });
 
-        render();
-      });
+    enabledCheckbox.addEventListener("change", e => {
+
+      layer.enabled = e.target.checked;
+
+      render();
+    });
 
 
     /*
@@ -559,7 +1577,6 @@ function renderLayers() {
         render();
       });
 
-
     /*
      * Delete layer.
      */
@@ -569,28 +1586,41 @@ function renderLayers() {
 
         e.stopPropagation();
 
-        if (layers.length === 1) {
-          return;
+        if (editingRecipe) {
+          recipeEditorLayers =
+            recipeEditorLayers.filter(
+              x => x.id !== layer.id
+            );
+
+          activeRecipeLayers =
+            activeRecipeLayers.filter(
+              x => x.id !== layer.recipeLayerId
+            );
+
+        } else {
+
+          if (layers.length === 1) {
+            return;
+          }
+
+          layers =
+            layers.filter(
+              x => x.id !== layer.id
+            );
         }
 
-        layers =
-          layers.filter(
-            x => x.id !== layer.id
-          );
-
         if (
-          !layers.some(
+          !displayedLayers.some(
             x => x.id === selectedLayerId
           )
         ) {
           selectedLayerId =
-            layers.at(-1).id;
+            displayedLayers.at(-1)?.id || null;
         }
 
         renderLayers();
         render();
       });
-
 
     /*
      * Move layer up.
@@ -601,12 +1631,12 @@ function renderLayers() {
 
         e.stopPropagation();
 
-        moveLayer(
-          layer.id,
-          1
-        );
+        if (editingRecipe) {
+          moveRecipeLayer(layer.id, 1);
+        } else {
+          moveLayer(layer.id, 1);
+        }
       });
-
 
     /*
      * Move layer down.
@@ -617,15 +1647,112 @@ function renderLayers() {
 
         e.stopPropagation();
 
-        moveLayer(
-          layer.id,
-          -1
-        );
+        if (editingRecipe) {
+          moveRecipeLayer(layer.id, -1);
+        } else {
+          moveLayer(layer.id, -1);
+        }
       });
-
 
     container.appendChild(row);
   });
+}
+
+function moveRecipeLayer(layerId, direction) {
+  const editorIndex = recipeEditorLayers.findIndex(
+    layer => layer.id === layerId
+  );
+
+  if (editorIndex === -1 || !activeRecipeTree) return;
+
+  const recipeLayerId =
+    recipeEditorLayers[editorIndex].recipeLayerId;
+
+  // Find the group containing the requested recipe layer.
+  function findParentGroup(node, targetId) {
+    if (!node || node.type !== "group") return null;
+
+    for (const child of node.children) {
+      if (child.type === "layer" && child.id === targetId) {
+        return node;
+      }
+
+      if (child.type === "group") {
+        const result = findParentGroup(child, targetId);
+
+        if (result) return result;
+      }
+    }
+
+    return null;
+  }
+
+  const parentGroup = findParentGroup(
+    activeRecipeTree,
+    recipeLayerId
+  );
+
+  if (!parentGroup) return;
+
+  const siblings = parentGroup.children;
+
+  const treeIndex = siblings.findIndex(
+    child => child.type === "layer" &&
+      child.id === recipeLayerId
+  );
+
+  const newTreeIndex = treeIndex + direction;
+
+  if (
+    treeIndex === -1 ||
+    newTreeIndex < 0 ||
+    newTreeIndex >= siblings.length
+  ) {
+    return;
+  }
+
+  // Only allow reordering with another layer
+  // in the same compound group.
+  const neighboringNode = siblings[newTreeIndex];
+
+  if (neighboringNode.type !== "layer") return;
+
+  // Find the neighboring layer in the editor.
+  const neighboringEditorIndex = recipeEditorLayers.findIndex(
+    layer => layer.recipeLayerId === neighboringNode.id
+  );
+
+  if (neighboringEditorIndex === -1) return;
+
+  // Swap the actual recipe tree nodes.
+  [siblings[treeIndex], siblings[newTreeIndex]] = [
+    siblings[newTreeIndex],
+    siblings[treeIndex]
+  ];
+
+  // Keep the editor list synchronized.
+  [
+    recipeEditorLayers[editorIndex],
+    recipeEditorLayers[neighboringEditorIndex]
+  ] = [
+    recipeEditorLayers[neighboringEditorIndex],
+    recipeEditorLayers[editorIndex]
+  ];
+
+  // Keep the flattened recipe layers synchronized.
+  const recipeOrder = recipeEditorLayers.map(
+    layer => layer.recipeLayerId
+  );
+
+  activeRecipeLayers.sort((a, b) => {
+    return (
+      recipeOrder.indexOf(a.id) -
+      recipeOrder.indexOf(b.id)
+    );
+  });
+
+  renderLayers();
+  render();
 }
 
 
@@ -757,6 +1884,8 @@ function renderColorControls() {
           peltColors[parameter.id] =
             color.value.toUpperCase();
 
+          markPaletteCustom();
+
           hex.value =
             peltColors[parameter.id];
 
@@ -786,6 +1915,8 @@ function renderColorControls() {
 
           peltColors[parameter.id] =
             value;
+
+          markPaletteCustom();
 
           color.value =
             value;
@@ -1040,6 +2171,8 @@ function randomizeColors() {
         peltColors[parameter.id] = randomHex();
     }
 
+    markPaletteCustom();
+
     // Remove direct layer overrides so layers use
     // their assigned color parameters again.
     for (const layer of layers) {
@@ -1092,12 +2225,126 @@ function randomizePattern() {
  * ============================================================
  */
 
+
+function getRecipeSaveData() {
+
+  if (!selectedRecipe || !activeRecipeTree) {
+    return null;
+  }
+
+  return {
+    name: selectedRecipe,
+
+    layers: recipeEditorLayers.map(layer => ({
+      recipeLayerId: layer.recipeLayerId,
+      opacity: layer.opacity,
+      enabled: layer.enabled
+    })),
+
+    order: recipeEditorLayers.map(
+      layer => layer.recipeLayerId
+    )
+  };
+}
+
+
+function restoreRecipeSaveData(recipeData) {
+
+  if (
+    !recipeData ||
+    typeof recipeData.name !== "string" ||
+    !peltRecipes[recipeData.name]
+  ) {
+    return false;
+  }
+
+  // Select the saved recipe.
+  selectPeltRecipe(recipeData.name);
+
+  if (!Array.isArray(recipeData.layers)) {
+    return true;
+  }
+
+  // Restore opacity and visibility.
+  for (const savedLayer of recipeData.layers) {
+
+    const layer = getEditableRecipeLayer(
+      savedLayer.recipeLayerId
+    );
+
+    if (!layer) continue;
+
+    layer.opacity = Math.max(
+      0,
+      Math.min(
+        1,
+        Number(savedLayer.opacity ?? layer.opacity)
+      )
+    );
+
+    layer.enabled = savedLayer.enabled !== false;
+  }
+
+  // Restore layer ordering.
+  if (Array.isArray(recipeData.order) && activeRecipeTree) {
+
+    const savedOrder = new Map(
+      recipeData.order.map((id, index) => [id, index])
+    );
+
+    function restoreOrder(node) {
+
+      if (!node || node.type !== "group") return;
+
+      for (const child of node.children) {
+        if (child.type === "group") {
+          restoreOrder(child);
+        }
+      }
+
+      node.children.sort((a, b) => {
+
+        if (a.type !== "layer" || b.type !== "layer") {
+          return 0;
+        }
+
+        const aOrder = savedOrder.get(a.id);
+        const bOrder = savedOrder.get(b.id);
+
+        if (aOrder === undefined || bOrder === undefined) {
+          return 0;
+        }
+
+        return aOrder - bOrder;
+      });
+    }
+
+    restoreOrder(activeRecipeTree);
+  }
+
+  synchronizeRecipeEditorOrder();
+
+  renderLayers();
+  render();
+
+  return true;
+}
+
+
 function savePelt() {
 
   const data = {
 
+    version: 2,
+
+    recipe:
+      getRecipeSaveData(),
+
     poseIndex:
       currentPoseIndex,
+
+    palette:
+      selectedPalette,
 
     /*
      * Every COLOR_PARAMETERS color is saved.
@@ -1156,6 +2403,28 @@ function loadPelt(file) {
           reader.result
         );
 
+      
+      /*
+      * Validate the save file.
+      */
+      if (
+        !data ||
+        typeof data !== "object" ||
+        Array.isArray(data)
+      ) {
+        throw new Error("Invalid save file.");
+      }
+
+      if (
+        data.version !== undefined &&
+        (
+          !Number.isInteger(data.version) ||
+          data.version < 1 ||
+          data.version > 2
+        )
+      ) {
+        throw new Error("Unsupported save-file version.");
+      }
 
       /*
        * Load colors.
@@ -1183,6 +2452,31 @@ function loadPelt(file) {
             ] = value;
           }
         }
+      }
+
+      /*
+      * Restore the selected palette.
+      *
+      * Older save files without a palette name
+      * are treated as Custom.
+      */
+      if (
+        typeof data.palette === "string" &&
+        (
+          colorPalettes[data.palette] ||
+          data.palette === "Custom"
+        )
+      ) {
+        selectedPalette = data.palette;
+      } else {
+        selectedPalette = "Custom";
+      }
+
+      const paletteSelect =
+        document.getElementById("paletteSelect");
+
+      if (paletteSelect) {
+        paletteSelect.value = selectedPalette;
       }
 
 
@@ -1298,6 +2592,21 @@ function loadPelt(file) {
           currentPoseIndex;
       }
 
+
+      /*
+      * Restore recipe, if present.
+      */
+      if (data.recipe) {
+        const restored = restoreRecipeSaveData(data.recipe);
+
+        if (!restored) {
+          console.warn(
+            "Saved recipe could not be restored."
+          );
+        }
+      } else {
+        selectPeltRecipe("");
+      }
 
       refreshPelt();
 
@@ -1478,25 +2787,21 @@ function loadImage(
 
 function resetPelt() {
 
-  peltColors = {};
-
-  for (const parameter of COLOR_PARAMETERS) {
-
-    peltColors[parameter.id] =
-      "#FFFFFF";
-  }
-
+  /*
+   * Reset to the WHITE ClanGen palette.
+   */
+  applyColorPalette("WHITE");
 
   layers = [
     createLayer(0)
   ];
 
-
   selectedLayerId =
     layers[0].id;
 
-
   refreshPelt();
+
+  renderPatternPreview();
 }
 
 
@@ -1530,23 +2835,99 @@ function refreshPelt() {
  * ============================================================
  */
 
+/*
+ * Color palette selection.
+ */
+
+document
+  .getElementById("paletteSelect")
+  .addEventListener("change", e => {
+    const previousLayers = recipeEditorLayers;
+
+    const paletteName = e.target.value;
+
+    if (paletteName === "Custom") {
+      selectedPalette = "Custom";
+    } else {
+      applyColorPalette(paletteName);
+    }
+
+    if (selectedRecipe) {
+      const recipe = peltRecipes[selectedRecipe];
+
+      if (recipe) {
+        activeRecipeLayers = resolveRecipeLayers(recipe);
+
+        reorderRecipeTreeFromEditor(
+          activeRecipeTree,
+          previousLayers
+        );
+
+        recipeEditorLayers = createEditableRecipeLayers(
+          activeRecipeLayers,
+          previousLayers
+        );
+
+        synchronizeRecipeEditorOrder();
+
+        renderLayers();
+      }
+    }
+
+    render();
+  });
+
 
 /*
  * Pose selection.
  */
+
+
 document
   .getElementById("poseSelect")
-  .addEventListener(
-    "change",
-    e => {
+  .addEventListener("change", e => {
+    const previousLayers = recipeEditorLayers;
 
-      currentPoseIndex =
-        Number(e.target.value);
+    currentPoseIndex = Number(e.target.value);
 
-      render();
-      renderPatternPreview();
+    if (selectedRecipe) {
+      const recipe = peltRecipes[selectedRecipe];
+
+      if (recipe) {
+        activeRecipeLayers = resolveRecipeLayers(recipe);
+
+        reorderRecipeTreeFromEditor(
+          activeRecipeTree,
+          previousLayers
+        );
+
+        recipeEditorLayers = createEditableRecipeLayers(
+          activeRecipeLayers,
+          previousLayers
+        );
+
+        synchronizeRecipeEditorOrder();
+
+        renderLayers();
+      }
     }
-  );
+
+    render();
+    renderPatternPreview();
+  });
+
+
+
+/*
+ * Pelt recipe selection.
+ */
+document
+  .getElementById("recipeSelect")
+  .addEventListener("change", e => {
+
+    selectPeltRecipe(e.target.value);
+
+  });
 
 
 /*
@@ -1575,6 +2956,15 @@ document
  */
 document.getElementById("patternSelect").addEventListener("change", () => {
     renderPatternPreview();
+});
+
+document.getElementById("flipBtn").addEventListener("click", () => {
+    isFlipped = !isFlipped;
+
+    document.getElementById("flipBtn").textContent =
+        isFlipped ? "Flip" : "Flip";
+
+    render();
 });
 
 
@@ -1715,7 +3105,11 @@ Promise.all([
     maskAtlas,
     MASK_URL,
     "pelt_parts_masks.png"
-  )
+  ),
+
+  loadPeltRecipes(),
+
+  loadColorPalettes()
 
 ])
 
@@ -1724,6 +3118,12 @@ Promise.all([
     assetsReady = true;
 
     populateControls();
+
+    populateRecipeSelect();
+
+    populatePaletteSelect();
+
+    applyColorPalette("WHITE");
 
     renderColorControls();
 
