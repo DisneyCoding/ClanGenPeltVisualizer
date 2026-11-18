@@ -273,14 +273,34 @@ input[type="color"] {
 
 .layer-controls {
     display: grid;
-    grid-template-columns: 42px 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
     margin-top: 8px;
+}
+
+.layer-color-display {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.layer-color-swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+    border: 1px solid #777;
+    flex-shrink: 0;
+}
+
+.layer-color-hex {
+    font-size: .75rem;
+    color: #a4ad9e;
 }
 
 .layer-controls input[type="range"] {
     width: 100%;
+    min-width: 0;
     accent-color: #91a77f;
 }
 

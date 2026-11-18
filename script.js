@@ -1469,6 +1469,7 @@ function renderLayers() {
       patternInfo(layer.patternIndex) || {
         label: layer.groupName || "Unknown pattern"
       };
+    const layerColor = getColorForLayer(layer);
 
     const row =
       document.createElement("div");
@@ -1510,7 +1511,22 @@ function renderLayers() {
 
       </div>
 
-      <div class="layer-controls">
+      
+    <div class="layer-controls">
+
+      <div
+          class="layer-color-display"
+          title="${layerColor}"
+        >
+          <span
+            class="layer-color-swatch"
+            style="background-color: ${layerColor}"
+          ></span>
+
+          <span class="layer-color-hex">
+            ${layerColor}
+          </span>
+        </div>
 
         <input
           class="layer-opacity"
@@ -1526,6 +1542,7 @@ function renderLayers() {
         </span>
 
       </div>
+
     `;
 
     /*
@@ -2184,6 +2201,10 @@ function randomizeColors() {
 
 
 function randomizePattern() {
+
+    // Switch to Manual Layers before randomizing.
+    selectPeltRecipe("");
+
     // Preserve the existing base layer and its settings.
     let base = layers.find(layer => layer.patternIndex === 0);
 
