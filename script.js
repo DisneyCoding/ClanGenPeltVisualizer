@@ -2195,8 +2195,8 @@ function randomizePattern() {
     const usablePatterns = PATTERNS
         .filter(pattern => pattern.index !== 0);
 
-    // Randomly choose between 1 and 11 additional patterns.
-    const count = 1 + Math.floor(Math.random() * 11);
+    // Randomly choose between 1 and 5 additional patterns.
+    const count = 1 + Math.floor(Math.random() * 5);
 
     // Shuffle the available patterns so we don't select
     // the same pattern more than once.
